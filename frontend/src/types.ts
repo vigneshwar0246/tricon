@@ -1,0 +1,25 @@
+export type AssistantPhase = "idle" | "requesting-permission" | "listening" | "processing" | "speaking" | "error";
+export type ServiceState = "unknown" | "ready" | "unavailable";
+
+export interface Message {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  createdAt: string;
+  audioUrl?: string;
+}
+
+export interface Metrics {
+  sttMs?: number;
+  llmMs?: number;
+  ttsMs?: number;
+  totalMs?: number;
+}
+
+export interface SystemHealth {
+  api: ServiceState;
+  stt: ServiceState;
+  llm: ServiceState;
+  tts: ServiceState;
+  checkedAt?: string;
+}

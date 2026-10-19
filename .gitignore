@@ -1,0 +1,153 @@
+# ==========================================
+# AI Voice Assistant - Git Ignore
+# Python + FastAPI + React + Vite
+# ==========================================
+
+# ---------- Environment Variables & Secrets ----------
+.env
+.env.*
+!.env.example
+!.env.*.example
+!.env.local.example
+!.env.development.example
+!.env.production.example
+
+# Private credentials and certificates
+secrets/
+credentials.json
+service-account*.json
+*.pem
+*.key
+*.p12
+*.pfx
+
+# ---------- Python ----------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.python-version.local
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+backend/.venv/
+backend/venv/
+
+# Python packaging
+build/
+dist/
+wheels/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+
+# Python test, lint and type-check caches
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+.mypy_cache/
+.pytype/
+.ruff_cache/
+.hypothesis/
+
+# ---------- Node.js / npm ----------
+node_modules/
+frontend/node_modules/
+.npm/
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Keep package-lock.json, yarn.lock and pnpm-lock.yaml tracked
+
+# ---------- React / Vite ----------
+frontend/dist/
+frontend/build/
+frontend/.vite/
+*.tsbuildinfo
+
+# Frontend environment variables
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+!frontend/.env.*.example
+
+# ---------- AI Models & Large Artifacts ----------
+models/
+model_weights/
+checkpoints/
+artifacts/
+*.safetensors
+*.gguf
+*.onnx
+*.pt
+*.pth
+*.ckpt
+
+# Downloaded speech models and local model caches
+model_cache/
+models_cache/
+hf_cache/
+whisper_cache/
+
+# NOTE: Ollama models are normally stored outside this project.
+# Do not add a blanket rule for all .bin files.
+
+# ---------- Datasets & Generated Audio ----------
+data/raw/
+data/processed/
+datasets/
+uploads/
+recordings/
+generated_audio/
+*.wav
+*.mp3
+*.m4a
+*.ogg
+*.flac
+*.webm
+
+# Keep explicitly committed small sample files using exceptions if needed.
+
+# ---------- Logs & Runtime Data ----------
+*.log
+logs/
+tmp/
+temp/
+.cache/
+*.pid
+*.seed
+
+# Local databases (remove these rules if DB fixtures must be committed)
+*.sqlite
+*.sqlite3
+*.db
+
+# ---------- Jupyter ----------
+.ipynb_checkpoints/
+
+# ---------- IDEs ----------
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ---------- Operating Systems ----------
+.DS_Store
+.DS_Store?
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# ---------- Build / Test Reports ----------
+coverage/
+test-results/
+playwright-report/
+playwright/.cache/
