@@ -5,41 +5,46 @@ import type { Message } from "../types";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
 
-function MessageAudio({ url }: { url: string }) {
+function MessageAudio({ url, onSpeakingChange }: { url: string; onSpeakingChange: (speaking: boolean) => void }) {
   const audio = useRef<HTMLAudioElement | null>(null);
   const [playing, setPlaying] = useState(false);
-  useEffect(() => () => audio.current?.pause(), []);
+  const [playbackError, setPlaybackError] = useState(false);
+  useEffect(() => () => { audio.current?.pause(); onSpeakingChange(false); }, [onSpeakingChange]);
   const toggle = () => {
     audio.current ??= new Audio(url);
-    audio.current.onended = () => setPlaying(false);
-    if (audio.current.paused) { void audio.current.play(); setPlaying(true); }
-    else { audio.current.pause(); setPlaying(false); }
+    const reset = () => { setPlaying(false); onSpeakingChange(false); };
+    audio.current.onended = reset;
+    audio.current.onerror = () => { reset(); setPlaybackError(true); };
+    if (audio.current.paused) {
+      setPlaybackError(false);
+      void audio.current.play().then(() => { setPlaying(true); onSpeakingChange(true); }).catch(() => { reset(); setPlaybackError(true); });
+    } else { audio.current.pause(); reset(); }
   };
-  return <button className="audio-control" onClick={toggle}>{playing ? <Pause /> : <Play />}<span>{playing ? "Pause response" : "Play response"}</span></button>;
+  return <><button className="audio-control" onClick={toggle}>{playing ? <Pause /> : <Play />}<span>{playing ? "Pause response" : "Play response"}</span></button>{playbackError && <span className="playback-error" role="alert">Audio playback failed.</span>}</>;
 }
 
-function MessageBubble({ message }: { message: Message }) {
+function MessageBubble({ message, onSpeakingChange }: { message: Message; onSpeakingChange: (speaking: boolean) => void }) {
   const assistant = message.role === "assistant";
   return (
     <article className={`message ${message.role}`}>
       <span className="message-avatar">{assistant ? <Bot /> : <UserRound />}</span>
-      <div className="message-content"><span className="message-label">{assistant ? "AI Voice Assistant" : "You"}</span><p>{message.content}</p>{assistant && message.audioUrl && <MessageAudio url={message.audioUrl} />}</div>
+      <div className="message-content"><span className="message-label">{assistant ? "AI Voice Assistant" : "You"}</span><p>{message.content}</p>{assistant && message.audioUrl && <MessageAudio url={message.audioUrl} onSpeakingChange={onSpeakingChange} />}</div>
     </article>
   );
 }
 
 export function Conversation({ expanded = false }: { expanded?: boolean }) {
-  const { messages, phase, error, submitText, toggleRecording, clearConversation } = useVoice();
+  const { messages, phase, error, submitText, toggleRecording, clearConversation, setSpeaking } = useVoice();
   const [draft, setDraft] = useState("");
   const feed = useRef<HTMLDivElement>(null);
   useEffect(() => { feed.current?.scrollTo({ top: feed.current.scrollHeight, behavior: "smooth" }); }, [messages, phase]);
   const submit = (event: React.FormEvent) => { event.preventDefault(); if (draft.trim()) { void submitText(draft); setDraft(""); } };
   return (
     <Card className={`conversation ${expanded ? "conversation-expanded" : ""}`}>
-      <div className="conversation-header"><div><p className="overline">Conversation</p><h2>{expanded ? "Conversation workspace" : "Continue in your own words"}</h2></div><Button variant="ghost" onClick={clearConversation} disabled={!messages.length}><Trash2 />Clear</Button></div>
+      <div className="conversation-header"><div><p className="overline">Conversation</p><h2>{expanded ? "Conversation workspace" : "Continue in your own words"}</h2></div><Button variant="ghost" onClick={() => void clearConversation()} disabled={!messages.length || phase === "processing" || phase === "listening" || phase === "requesting-permission"}><Trash2 />Clear</Button></div>
       <div className="message-feed" ref={feed} aria-live="polite">
         {!messages.length && <div className="conversation-empty"><span><Sparkles /></span><strong>No messages yet</strong><p>Speak or type a question to start a local conversation.</p></div>}
-        {messages.map((message) => <MessageBubble key={message.id} message={message} />)}
+        {messages.map((message) => <MessageBubble key={message.id} message={message} onSpeakingChange={setSpeaking} />)}
         {phase === "processing" && <div className="thinking-row" role="status"><span /><span /><span /><p>Processing with local models</p></div>}
       </div>
       {error && <div className="inline-error" role="alert">{error}</div>}

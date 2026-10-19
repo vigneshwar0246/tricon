@@ -1,0 +1,48 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { getHealth, sendText, sendVoice } from "./api";
+
+afterEach(() => vi.unstubAllGlobals());
+
+describe("local API client", () => {
+  it("keeps API availability separate from degraded model readiness", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      status: "degraded",
+      backend: { available: true },
+      services: { api: true, llm: false, stt: false, tts: false },
+      models: { llm: "qwen2.5:3b" },
+    }), { status: 200 })));
+
+    await expect(getHealth()).resolves.toMatchObject({ api: "ready", llm: "unavailable", models: { llm: "qwen2.5:3b" } });
+  });
+
+  it("returns measured chat data and preserves server error details", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ session_id: "s1", response: "Actual local answer", metrics: { llm_ms: 24, total_ms: 26 } }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ detail: "Ollama is offline." }), { status: 503 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(sendText("hello", "s1")).resolves.toMatchObject({ content: "Actual local answer", sessionId: "s1", metrics: { llmMs: 24, totalMs: 26 } });
+    await expect(sendText("hello", "s1")).rejects.toThrow("Ollama is offline.");
+  });
+
+  it("uploads browser audio and resolves backend playback links", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      transcript: "hello", response: "spoken answer", session_id: "session-2", audio_url: "/api/audio/reply.wav",
+      metrics: { stt_ms: 10, llm_ms: 20, tts_ms: 30, total_ms: 62 },
+    }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await sendVoice(new Blob(["audio"], { type: "audio/webm;codecs=opus" }), "session-1", "ta");
+    expect(result).toMatchObject({ transcript: "hello", content: "spoken answer", sessionId: "session-2", audioUrl: expect.stringContaining("/api/audio/reply.wav") });
+    const form = fetchMock.mock.calls[0][1]?.body as FormData;
+    expect((form.get("audio") as File).name).toBe("voice.webm");
+    expect(form.get("session_id")).toBe("session-1");
+    expect(form.get("language")).toBe("ta");
+  });
+
+  it("does not invent a transcript or audio when the voice API omits them", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ response: "answer" }), { status: 200 })));
+    await expect(sendVoice(new Blob(["audio"], { type: "audio/webm" }), "session"))
+      .rejects.toThrow("The API response did not contain a transcription.");
+  });
+});

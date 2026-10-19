@@ -8,9 +8,9 @@ const label: Record<ServiceState, string> = { unknown: "Not checked", ready: "Re
 export function StatusPanel() {
   const { health, healthLoading, refreshHealth } = useVoice();
   const services = [
-    { name: "Speech-to-Text", model: "Faster-Whisper", state: health.stt, icon: Speech },
-    { name: "Language Model", model: "Qwen 2.5 3B", state: health.llm, icon: Bot },
-    { name: "Text-to-Speech", model: "Piper or Kokoro", state: health.tts, icon: Cpu },
+    { name: "Speech-to-Text", model: health.models?.stt ?? "Faster-Whisper", state: health.stt, icon: Speech },
+    { name: "Language Model", model: health.models?.llm ?? "Ollama", state: health.llm, icon: Bot },
+    { name: "Text-to-Speech", model: health.models?.tts?.replaceAll("_", " ") ?? "Piper", state: health.tts, icon: Cpu },
     { name: "Backend API", model: "Local FastAPI service", state: health.api, icon: Server },
   ];
   return (

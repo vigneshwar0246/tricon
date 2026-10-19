@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
+import userEvent from "@testing-library/user-event";
 
 describe("AI Voice Assistant", () => {
   beforeEach(() => { vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline"))); });
@@ -19,5 +20,90 @@ describe("AI Voice Assistant", () => {
     expect(screen.getByRole("link", { name: "Conversations" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Settings" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "About" })).toBeInTheDocument();
+  });
+
+  it("lets the user choose a transcription language for future voice turns", async () => {
+    const user = userEvent.setup();
+    render(<MemoryRouter initialEntries={["/settings"]}><App /></MemoryRouter>);
+    const language = screen.getByRole("combobox", { name: "Transcription language" });
+    await user.selectOptions(language, "ta");
+    expect(language).toHaveValue("ta");
+  });
+
+  it("sends text to the backend and displays its actual response", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ status: "degraded", backend: { available: true }, services: { api: true, llm: true, stt: false, tts: false }, models: { llm: "qwen2.5:3b" } }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ session_id: "test-session", response: "A response from Ollama", metrics: { llm_ms: 31, total_ms: 32 } }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ session_id: "test-session", deleted: true }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    render(<MemoryRouter><App /></MemoryRouter>);
+    await user.type(screen.getByRole("textbox", { name: "Message" }), "Hello local model");
+    await user.click(screen.getByRole("button", { name: "Send message" }));
+
+    expect(await screen.findByText("A response from Ollama")).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith("/api/chat", expect.objectContaining({ method: "POST" }));
+    await user.click(screen.getByRole("button", { name: "Clear" }));
+    expect(await screen.findByText("No messages yet")).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenLastCalledWith("/api/chat/test-session", expect.objectContaining({ method: "DELETE" }));
+  });
+
+  it("shows an Ollama error and never fabricates a reply", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ status: "degraded", backend: { available: true }, services: { api: true, llm: false, stt: false, tts: false } }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ detail: "Ollama is offline." }), { status: 503 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    render(<MemoryRouter><App /></MemoryRouter>);
+    await user.type(screen.getByRole("textbox", { name: "Message" }), "Hello");
+    await user.click(screen.getByRole("button", { name: "Send message" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Ollama is offline.");
+    expect(screen.queryByText("Hello! How can I help?")).not.toBeInTheDocument();
+  });
+
+  it("records audio, uploads it, and renders the returned transcript and audio control", async () => {
+    const stopTrack = vi.fn();
+    Object.defineProperty(navigator, "mediaDevices", { configurable: true, value: { getUserMedia: vi.fn().mockResolvedValue({ getTracks: () => [{ stop: stopTrack }] }) } });
+    class MockRecorder extends EventTarget {
+      mimeType = "audio/webm";
+      state: RecordingState = "inactive";
+      start() { this.state = "recording"; }
+      stop() {
+        this.state = "inactive";
+        const data = new Event("dataavailable");
+        Object.defineProperty(data, "data", { value: new Blob(["recorded audio"], { type: this.mimeType }) });
+        this.dispatchEvent(data);
+        this.dispatchEvent(new Event("stop"));
+      }
+    }
+    class MockAudio {
+      paused = true;
+      onended: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      async play() { this.paused = false; }
+      pause() { this.paused = true; }
+    }
+    vi.stubGlobal("MediaRecorder", MockRecorder);
+    vi.stubGlobal("Audio", MockAudio);
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ status: "degraded", backend: { available: true }, services: { api: true, llm: true, stt: true, tts: true } }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ session_id: "voice-session", transcript: "recognized words", response: "Spoken local response", audio_url: "/api/audio/reply.wav", metrics: { stt_ms: 10, llm_ms: 20, tts_ms: 30, total_ms: 62 } }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    render(<MemoryRouter><App /></MemoryRouter>);
+    await user.click(screen.getAllByRole("button", { name: "Start listening" })[0]);
+    expect(await screen.findByText("Listening")).toBeInTheDocument();
+    await user.click(screen.getAllByRole("button", { name: "Stop listening" })[0]);
+
+    expect(await screen.findByText("recognized words")).toBeInTheDocument();
+    expect(screen.getByText("Spoken local response")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Play response" })).toBeInTheDocument();
+    expect(stopTrack).toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenLastCalledWith("/api/voice", expect.objectContaining({ method: "POST" }));
+    await user.click(screen.getByRole("button", { name: "Play response" }));
+    expect(await screen.findByText("Speaking")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Pause response" }));
+    expect(await screen.findByText("Tap to speak")).toBeInTheDocument();
   });
 });

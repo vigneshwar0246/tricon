@@ -21,5 +21,6 @@ export interface SystemHealth {
   stt: ServiceState;
   llm: ServiceState;
   tts: ServiceState;
+  models?: { stt?: string; llm?: string; tts?: string; language?: string };
   checkedAt?: string;
 }

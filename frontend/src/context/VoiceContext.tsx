@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { getHealth, sendText, sendVoice } from "../lib/api";
+import { deleteSession, getHealth, sendText, sendVoice } from "../lib/api";
 import type { AssistantPhase, Message, Metrics, SystemHealth } from "../types";
 
 interface VoiceContextValue {
@@ -7,12 +7,15 @@ interface VoiceContextValue {
   phase: AssistantPhase;
   error: string | null;
   metrics: Metrics;
+  language: string;
   health: SystemHealth;
   healthLoading: boolean;
   submitText: (text: string) => Promise<void>;
   toggleRecording: () => Promise<void>;
   clearConversation: () => void;
   refreshHealth: () => Promise<void>;
+  setLanguage: (language: string) => void;
+  setSpeaking: (speaking: boolean) => void;
 }
 
 const defaultHealth: SystemHealth = { api: "unknown", stt: "unknown", llm: "unknown", tts: "unknown" };
@@ -24,9 +27,10 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
   const [phase, setPhase] = useState<AssistantPhase>("idle");
   const [error, setError] = useState<string | null>(null);
   const [metrics, setMetrics] = useState<Metrics>({});
+  const [language, setLanguage] = useState("");
   const [health, setHealth] = useState<SystemHealth>(defaultHealth);
   const [healthLoading, setHealthLoading] = useState(false);
-  const sessionId = useRef(newId());
+  const sessionId = useRef<string>(newId());
   const recorder = useRef<MediaRecorder | null>(null);
   const stream = useRef<MediaStream | null>(null);
   const chunks = useRef<Blob[]>([]);
@@ -49,6 +53,7 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
     setPhase("processing");
     try {
       const result = await sendText(clean, sessionId.current);
+      sessionId.current = result.sessionId;
       addMessage("assistant", result.content, result.audioUrl);
       setMetrics(result.metrics);
       setPhase("idle");
@@ -77,7 +82,8 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
         setPhase("processing");
         try {
           const blob = new Blob(chunks.current, { type: recorder.current?.mimeType || "audio/webm" });
-          const result = await sendVoice(blob, sessionId.current);
+          const result = await sendVoice(blob, sessionId.current, language || undefined);
+          sessionId.current = result.sessionId;
           addMessage("user", result.transcript);
           addMessage("assistant", result.content, result.audioUrl);
           setMetrics(result.metrics);
@@ -87,13 +93,22 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
       recorder.current.start();
       setPhase("listening");
     } catch (reason) {
+      stream.current?.getTracks().forEach((track) => track.stop());
+      stream.current = null;
       const denied = reason instanceof DOMException && reason.name === "NotAllowedError";
       handleError(new Error(denied ? "Microphone permission was denied." : reason instanceof Error ? reason.message : "Microphone access failed."));
     }
-  }, [addMessage, handleError, phase, stopRecording]);
+  }, [addMessage, handleError, language, phase, stopRecording]);
 
-  const clearConversation = useCallback(() => {
+  const clearConversation = useCallback(async () => {
+    const previousSession = sessionId.current;
     setMessages([]); setMetrics({}); setError(null); setPhase("idle"); sessionId.current = newId();
+    try { await deleteSession(previousSession); }
+    catch { setError("Conversation cleared on this device, but the backend could not confirm session deletion."); }
+  }, []);
+
+  const setSpeaking = useCallback((speaking: boolean) => {
+    setPhase((current) => speaking ? "speaking" : current === "speaking" ? "idle" : current);
   }, []);
 
   const refreshHealth = useCallback(async () => {
@@ -111,7 +126,7 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
   }, [refreshHealth]);
   useEffect(() => () => stream.current?.getTracks().forEach((track) => track.stop()), []);
 
-  const value = useMemo(() => ({ messages, phase, error, metrics, health, healthLoading, submitText, toggleRecording, clearConversation, refreshHealth }), [messages, phase, error, metrics, health, healthLoading, submitText, toggleRecording, clearConversation, refreshHealth]);
+  const value = useMemo(() => ({ messages, phase, error, metrics, health, healthLoading, language, setLanguage, submitText, toggleRecording, clearConversation, refreshHealth, setSpeaking }), [messages, phase, error, metrics, health, healthLoading, language, submitText, toggleRecording, clearConversation, refreshHealth, setSpeaking]);
   return <VoiceContext.Provider value={value}>{children}</VoiceContext.Provider>;
 }
 
