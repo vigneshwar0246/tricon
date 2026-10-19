@@ -36,7 +36,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         stt=app.state.stt,
         tts=app.state.tts,
     )
-    yield
+    try:
+        yield
+    finally:
+        await app.state.ollama.close()
 
 
 app = FastAPI(

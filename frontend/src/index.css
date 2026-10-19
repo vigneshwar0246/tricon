@@ -89,6 +89,20 @@ main { min-width: 0; }
 
 .card { background: rgba(255,255,255,.94); border: 1px solid var(--border); border-radius: 1.1rem; box-shadow: var(--shadow); }
 .conversation { padding: 1.35rem; }
+.hands-free-card { padding: 1.2rem 1.35rem; }
+.hands-free-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.hands-free-heading h2 { margin: .25rem 0 0; font-size: .95rem; }
+.hands-free-status { padding: .35rem .55rem; color: var(--orange-dark); background: var(--orange-soft); border-radius: 999px; font-size: .65rem; text-transform: capitalize; }
+.hands-free-note { color: var(--muted); font-size: .7rem; line-height: 1.55; }
+.hands-free-actions, .hands-free-options { display: flex; flex-wrap: wrap; gap: .55rem; align-items: center; }
+.hands-free-actions button { display: inline-flex; gap: .4rem; align-items: center; min-height: 2.3rem; padding: .5rem .75rem; color: var(--orange-dark); background: var(--orange-soft); border-radius: .7rem; font-size: .68rem; font-weight: 700; cursor: pointer; }
+.hands-free-actions button svg { width: .85rem; height: .85rem; }
+.hands-free-actions button.hands-free-primary { color: white; background: var(--orange); }
+.hands-free-actions button:disabled { opacity: .45; cursor: not-allowed; }
+.hands-free-options { margin-top: .85rem; gap: .75rem 1.3rem; }
+.hands-free-options label { display: inline-flex; gap: .4rem; align-items: center; color: #59646e; font-size: .66rem; }
+.hands-free-options input[type="checkbox"], .hands-free-options input[type="range"] { accent-color: var(--orange); }
+.hands-free-options select { padding: .25rem; border: 1px solid var(--border); border-radius: .4rem; background: white; }
 .conversation-header, .card-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
 .conversation h2, .card-header h2 { margin: .22rem 0 0; font-size: .96rem; letter-spacing: -.025em; }
 .button { display: inline-flex; align-items: center; justify-content: center; gap: .35rem; min-height: 2.2rem; padding: .55rem .8rem; border-radius: .7rem; font-size: .68rem; font-weight: 700; cursor: pointer; transition: transform .15s ease, background .2s ease; }

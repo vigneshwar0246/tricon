@@ -8,6 +8,7 @@ from time import perf_counter
 from typing import Any
 
 from app.services.llm import OllamaClient, ollama_client
+from app.services.commands import route_command
 from app.services.session_manager import SessionManager, session_manager
 from app.services.stt import SpeechToTextService, stt_service
 from app.services.tts import TextToSpeechService, tts_service
@@ -19,8 +20,9 @@ class PipelineResult:
     transcript: str
     response: str
     audio_path: Path
-    metrics: dict[str, float]
+    metrics: dict[str, float | None]
     created_at: datetime
+    action: str | None = None
 
 
 @dataclass
@@ -68,16 +70,25 @@ class VoicePipeline:
             stt_started = perf_counter()
             transcript, _transcription_details = await asyncio.to_thread(self.stt.transcribe, audio_path, language)
             stt_ms = round((perf_counter() - stt_started) * 1000, 2)
-            messages: list[dict[str, Any]] = self.sessions.history(session)
-            messages.append({"role": "user", "content": transcript})
-            llm_started = perf_counter()
-            response_text, metadata = await self.llm.chat(messages)
-            measured_llm_ms = round((perf_counter() - llm_started) * 1000, 2)
-            reported_llm_ms = round((metadata.get("total_duration", 0) or 0) / 1_000_000, 2)
-            llm_ms = reported_llm_ms if reported_llm_ms > 0 else measured_llm_ms
+            last_response = next((item.content for item in reversed(session.messages) if item.role == "assistant"), None)
+            command = route_command(transcript, last_response)
+            if command:
+                response_text = command.response
+                llm_ms = None
+            else:
+                messages: list[dict[str, Any]] = self.sessions.history(session)
+                messages.append({"role": "user", "content": transcript})
+                llm_started = perf_counter()
+                response_text, metadata = await self.llm.chat(messages)
+                measured_llm_ms = round((perf_counter() - llm_started) * 1000, 2)
+                reported_llm_ms = round((metadata.get("total_duration", 0) or 0) / 1_000_000, 2)
+                llm_ms = reported_llm_ms if reported_llm_ms > 0 else measured_llm_ms
 
             audio_output, tts_ms = await asyncio.to_thread(self.tts.synthesize_to_file, response_text)
-            self.sessions.add_exchange(session, transcript, response_text)
+            if command and command.action == "clear_conversation":
+                session.messages.clear()
+            else:
+                self.sessions.add_exchange(session, transcript, response_text)
 
         return PipelineResult(
             session_id=session.session_id,
@@ -91,6 +102,7 @@ class VoicePipeline:
                 "total_ms": round((perf_counter() - overall_started) * 1000, 2),
             },
             created_at=datetime.now(timezone.utc),
+            action=command.action if command else None,
         )
 
 

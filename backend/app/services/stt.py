@@ -2,6 +2,7 @@
 
 import logging
 import threading
+from importlib.util import find_spec
 from pathlib import Path
 from typing import Any
 
@@ -23,10 +24,18 @@ class SpeechToTextService:
         self.settings = settings or get_settings()
         self._model: Any = None
         self._model_lock = threading.Lock()
+        self.last_successful_device: str | None = None
 
     @property
     def available(self) -> bool:
-        return self.settings.stt_model_path.is_dir() and (self.settings.stt_model_path / "model.bin").is_file()
+        model_path = self.settings.stt_model_path
+        return (
+            model_path.is_dir()
+            and (model_path / "model.bin").is_file()
+            and (model_path / "config.json").is_file()
+            and ((model_path / "vocabulary.txt").is_file() or (model_path / "vocabulary.json").is_file())
+            and find_spec("faster_whisper") is not None
+        )
 
     def _get_model(self) -> Any:
         if self._model is not None:
@@ -34,9 +43,9 @@ class SpeechToTextService:
         with self._model_lock:
             if self._model is None:
                 model_path = self.settings.stt_model_path
-                if not model_path.is_dir() or not (model_path / "model.bin").is_file():
+                if not self.available:
                     raise SpeechModelNotInstalledError(
-                        f"Faster-Whisper model is not installed at '{model_path}'. Follow the model setup instructions in docs/architecture.md."
+                        f"Faster-Whisper package or required model files (model.bin, config.json, vocabulary) are missing at '{model_path}'. Follow docs/architecture.md."
                     )
                 try:
                     from faster_whisper import WhisperModel
@@ -75,6 +84,7 @@ class SpeechToTextService:
             raise TranscriptionError("The audio could not be transcribed. Use a supported audio file and try again.") from exc
         if not text:
             raise TranscriptionError("No speech was detected in the uploaded audio.")
+        self.last_successful_device = self.settings.stt_device
         return text, {
             "language": getattr(info, "language", None),
             "language_probability": getattr(info, "language_probability", None),

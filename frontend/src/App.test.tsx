@@ -106,4 +106,14 @@ describe("AI Voice Assistant", () => {
     await user.click(screen.getByRole("button", { name: "Pause response" }));
     expect(await screen.findByText("Tap to speak")).toBeInTheDocument();
   });
+
+  it("shows honest hands-free availability and safely handles an unsupported microphone", async () => {
+    vi.stubGlobal("MediaRecorder", undefined);
+    const user = userEvent.setup();
+    render(<MemoryRouter><App /></MemoryRouter>);
+    expect(screen.getByText(/Carrot.*requires a trained local wake-word model/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Enable hands-free" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("does not support local microphone capture");
+    expect(screen.getByRole("status", { name: /error/i })).toBeInTheDocument();
+  });
 });

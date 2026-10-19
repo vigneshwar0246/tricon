@@ -12,5 +12,6 @@ class VoiceResponse(BaseModel):
     transcript: str = Field(min_length=1)
     response: str = Field(min_length=1)
     audio_url: str | None = None
+    action: str | None = None
     metrics: MetricsResponse
     created_at: datetime

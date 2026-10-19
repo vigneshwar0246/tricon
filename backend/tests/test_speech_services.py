@@ -25,6 +25,18 @@ def test_speech_engines_report_missing_local_models_without_loading_or_downloadi
     assert not (tmp_path / "audio").exists()
 
 
+def test_stt_does_not_report_ready_without_vocabulary(tmp_path) -> None:
+    model = tmp_path / "incomplete-whisper"
+    model.mkdir()
+    (model / "model.bin").touch()
+    (model / "config.json").touch()
+    service = SpeechToTextService(Settings(stt_model_path=model))
+
+    assert service.available is False
+    with pytest.raises(SpeechModelNotInstalledError):
+        service._get_model()
+
+
 def test_tts_prunes_expired_and_excess_generated_audio(tmp_path) -> None:
     output = tmp_path / "audio"
     output.mkdir()

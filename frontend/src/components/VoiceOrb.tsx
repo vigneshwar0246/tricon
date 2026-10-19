@@ -6,6 +6,8 @@ import { useVoice } from "../context/VoiceContext";
 const phaseCopy = {
   idle: ["Tap to speak", "or press the spacebar"],
   "requesting-permission": ["Opening microphone", "check your browser permission"],
+  armed: ["Hands-free armed", "clap twice to speak"],
+  "wake-detected": ["Activated", "speak after the tone"],
   listening: ["Listening", "tap again when you are done"],
   processing: ["Thinking", "your local models are working"],
   speaking: ["Speaking", "playing the generated response"],

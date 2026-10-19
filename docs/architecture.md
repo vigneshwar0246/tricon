@@ -4,7 +4,7 @@ The backend is a local-first FastAPI service. It does not call paid cloud AI API
 
 ## Request flow
 
-- `GET /api/health` checks the API and probes the local Ollama `/api/tags` endpoint. It reports configured model names separately from readiness, so an installed Ollama service with a missing Qwen model is not presented as ready. The overall health is `degraded` when the configured LLM model is unavailable; `services.api` still shows whether FastAPI itself is responding. STT and TTS are ready only when their configured local model files exist.
+- `GET /api/health` checks the API and probes the local Ollama `/api/tags` endpoint. It reports configured model names separately from readiness, so an installed Ollama service with a missing Qwen model is not presented as ready. The overall health is `degraded` when the configured LLM model is unavailable; `services.api` still shows whether FastAPI itself is responding. STT and TTS are ready only when their packages and required local model files are present. This lightweight check does not run inference.
 - `POST /api/chat` accepts `{ "message": "...", "session_id": "optional-id" }`. The service serializes requests for a session, sends bounded prior turns to Ollama's local `/api/chat` endpoint, and appends the new exchange only after a successful response. Omit `session_id` to create a new session; the response returns its ID. `GET /api/chat/sessions` lists in-memory sessions and `DELETE /api/chat/{session_id}` clears one.
 - `POST /api/voice` accepts multipart form data with `audio`, optional `session_id`, and optional `language` (`en`, `hi`, or `ta`). The request is size/type/duration checked, transcribed by Faster-Whisper, answered by Ollama using the same session history, and synthesized by Piper. It returns transcript, answer, session ID, measured stage timings, and an `audio_url` that serves the generated WAV from this backend. History is committed only when the full voice turn succeeds.
 
@@ -13,7 +13,7 @@ Conversation state is held in memory: it is bounded by maximum sessions and turn
 ## Local model and platform choices
 
 - LLM: Ollama HTTP API, configured to `qwen2.5:3b` by default. Ollama must be running and the model pulled separately. The backend checks model presence and never pulls it on behalf of a request.
-- STT: Faster-Whisper is imported/lazy-loaded only on the first valid transcription. The default device is CPU with `int8`; no CUDA or GPU inference is claimed. Uploads are limited to 25 MB and five minutes by default (configurable). The configured model directory must already contain the downloaded Faster-Whisper files (including `model.bin`). If the directory is absent, the voice route returns a clear service-unavailable error.
+- STT: Faster-Whisper is imported/lazy-loaded only on the first valid transcription. The default device is CPU with `int8`; no CUDA or GPU inference is claimed. Uploads are limited to 25 MB and five minutes by default (configurable). The configured model directory must already contain `model.bin`, `config.json`, and a vocabulary file. If these are absent, the voice route returns a clear service-unavailable error. `av==16.0.1` is pinned because Faster-Whisper 1.2.1 still passes a decoder argument removed in PyAV 19; [the upstream issue](https://github.com/SYSTRAN/faster-whisper/issues/1589) documents the compatibility break.
 - TTS: Piper is selected because its `piper-tts` package publishes a Windows x64-compatible wheel. The default voice is `en_US-norman-medium`; its ONNX file and matching `.onnx.json` config are required. Piper's software is GPL-3.0 and voice/model licenses vary, so check the specific voice's terms before redistributing it. Norman's [model card](https://huggingface.co/rhasspy/piper-voices/blob/main/en/en_US/norman/medium/MODEL_CARD) lists its voice data as public domain and model repository as MIT. Piper is loaded lazily and configured for CPU by default.
 
 The async Ollama client uses non-streaming requests and configurable timeouts. Health-check timeouts are shorter than generation timeouts. Errors map offline/missing models to HTTP 503, invalid/unsupported audio to 4xx, and upstream/protocol errors to appropriate gateway errors; messages do not contain environment secrets.
@@ -36,6 +36,8 @@ python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 Copy-Item .env.example .env
 ```
+
+On this machine, the previous Python 3.11 virtual environment points to an inaccessible interpreter. The verified runtime was created separately with the available Python 3.13.9: `python -m venv backend/.venv-run` from the repository root, then `uv pip install --python backend/.venv-run/Scripts/python.exe -r backend/requirements.txt`. The `.venv-run` directory is ignored by Git; the old `.venv` was left untouched. Python 3.11 remains the recommended setup when available.
 
 Start Ollama in a separate terminal if it is not already running. Then check and install the configured chat model explicitly:
 

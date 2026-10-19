@@ -25,16 +25,25 @@ class OllamaResponseError(RuntimeError):
 class OllamaClient:
     def __init__(self, settings: Settings | None = None) -> None:
         self.settings = settings or get_settings()
+        self._client: httpx.AsyncClient | None = None
 
-    def _get_client(self, timeout_seconds: float | None = None) -> httpx.AsyncClient:
-        return httpx.AsyncClient(timeout=httpx.Timeout(timeout_seconds or self.settings.ollama_timeout_seconds))
+    def _get_client(self) -> httpx.AsyncClient:
+        if self._client is None or self._client.is_closed:
+            self._client = httpx.AsyncClient(timeout=httpx.Timeout(self.settings.ollama_timeout_seconds))
+        return self._client
+
+    async def close(self) -> None:
+        if self._client is not None:
+            await self._client.aclose()
 
     async def list_models(self, timeout_seconds: float | None = None) -> list[str]:
         try:
-            async with self._get_client(timeout_seconds) as client:
-                response = await client.get(f"{self.settings.ollama_base_url}/api/tags")
-                response.raise_for_status()
-                payload = response.json()
+            response = await self._get_client().get(
+                f"{self.settings.ollama_base_url}/api/tags",
+                timeout=timeout_seconds or self.settings.ollama_timeout_seconds,
+            )
+            response.raise_for_status()
+            payload = response.json()
         except (httpx.HTTPError, ValueError) as exc:
             raise OllamaUnavailableError("Ollama is not reachable at the configured local URL.") from exc
         if not isinstance(payload, dict):
@@ -51,11 +60,22 @@ class OllamaClient:
         normalized_expected = expected if ":" in expected else f"{expected}:latest"
         return normalized_expected in normalized_names
 
+    async def loaded_models(self) -> list[dict[str, int | str]]:
+        try:
+            response = await self._get_client().get(f"{self.settings.ollama_base_url}/api/ps", timeout=3.0)
+            response.raise_for_status()
+            models = response.json().get("models", [])
+            return [
+                {"name": str(item.get("name", "")), "size_vram_bytes": int(item.get("size_vram", 0))}
+                for item in models if isinstance(item, dict)
+            ]
+        except (httpx.HTTPError, ValueError, AttributeError, TypeError) as exc:
+            raise OllamaUnavailableError("Ollama runtime details are unavailable.") from exc
+
     async def chat(self, messages: list[dict[str, str]]) -> tuple[str, dict[str, Any]]:
         """Generate a reply without pulling a missing model automatically."""
         try:
-            async with self._get_client() as client:
-                response = await client.post(
+            response = await self._get_client().post(
                     f"{self.settings.ollama_base_url}/api/chat",
                     json={
                         "model": self.settings.ollama_model,
@@ -64,9 +84,11 @@ class OllamaClient:
                         "options": {
                             "temperature": self.settings.ollama_temperature,
                             "num_ctx": self.settings.ollama_num_ctx,
+                            "num_predict": self.settings.ollama_num_predict,
                         },
+                        "keep_alive": "15m",
                     },
-                )
+            )
         except httpx.TimeoutException as exc:
             raise OllamaUnavailableError("Ollama did not respond before the request timed out.") from exc
         except httpx.HTTPError as exc:

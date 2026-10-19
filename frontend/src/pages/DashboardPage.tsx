@@ -1,5 +1,6 @@
 import { motion, useReducedMotion } from "framer-motion";
 import { Conversation } from "../components/Conversation";
+import { HandsFreeControls } from "../components/HandsFreeControls";
 import { PerformancePanel } from "../components/PerformancePanel";
 import { StatusPanel } from "../components/StatusPanel";
 import { VoiceOrb } from "../components/VoiceOrb";
@@ -19,6 +20,7 @@ export function DashboardPage() {
           <div className="prompt-list" aria-label="Example prompts">{prompts.map((prompt) => <button key={prompt} onClick={() => void submitText(prompt)}>{prompt}</button>)}</div>
         </motion.section>
         <Conversation />
+        <HandsFreeControls />
       </div>
       <aside className="dashboard-side" aria-label="System information"><StatusPanel /><PerformancePanel /></aside>
     </div>

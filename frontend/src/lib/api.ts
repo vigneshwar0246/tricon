@@ -75,6 +75,7 @@ export async function sendVoice(blob: Blob, sessionId: string, language?: string
     transcript,
     content,
     audioUrl,
+    action: typeof data.action === "string" ? data.action : undefined,
     sessionId: String(data.session_id ?? sessionId),
     metrics: parseMetrics(data, performance.now() - started),
   };
@@ -108,4 +109,14 @@ export async function getHealth(signal?: AbortSignal): Promise<SystemHealth> {
     },
     checkedAt: new Date().toISOString(),
   };
+}
+
+export interface RuntimeDiagnostics {
+  stt: { configured_device: string; last_successful_device: string | null };
+  cuda: { device_count: number; cublas12_found: boolean; inference_verified: boolean; detail: string };
+  ollama_loaded_models: { name: string; size_vram_bytes: number }[];
+}
+
+export async function getDiagnostics(): Promise<RuntimeDiagnostics> {
+  return await parseResponse(await fetch(`${API_BASE}/api/diagnostics`)) as unknown as RuntimeDiagnostics;
 }

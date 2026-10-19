@@ -4,6 +4,7 @@ import logging
 import threading
 import time
 import wave
+from importlib.util import find_spec
 from pathlib import Path
 from uuid import uuid4
 
@@ -30,7 +31,7 @@ class TextToSpeechService:
     def available(self) -> bool:
         model_path = self.settings.tts_model_path
         config_path = self.settings.tts_config_path or Path(f"{model_path}.json")
-        return model_path.is_file() and config_path.is_file()
+        return model_path.is_file() and config_path.is_file() and find_spec("piper") is not None
 
     def _get_voice(self):
         if self._voice is not None:

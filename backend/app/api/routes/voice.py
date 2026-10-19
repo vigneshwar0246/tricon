@@ -90,6 +90,7 @@ async def voice(
         transcript=result.transcript,
         response=result.response,
         audio_url=f"/api/audio/{result.audio_path.name}",
+        action=result.action,
         metrics=MetricsResponse(**result.metrics),
         created_at=result.created_at,
     )
