@@ -30,3 +30,18 @@ async def test_voice_time_command_never_calls_llm(tmp_path: Path) -> None:
     assert result.metrics["llm_ms"] is None
     llm.chat.assert_not_called()
     tts.synthesize_to_file.assert_called_once_with(result.response)
+
+
+@pytest.mark.asyncio
+async def test_voice_status_uses_real_service_flags_without_generating_text(tmp_path: Path) -> None:
+    llm = Mock(chat=AsyncMock(), model_available=AsyncMock(return_value=False))
+    stt = Mock(transcribe=Mock(return_value=("System status", {})), available=True)
+    tts = Mock(synthesize_to_file=Mock(return_value=(tmp_path / "speech.wav", 10.0)), available=False)
+    pipeline = VoicePipeline(llm=llm, sessions=SessionManager(), stt=stt, tts=tts)
+
+    result = await pipeline.voice(tmp_path / "input.wav")
+
+    assert "Ollama model is unavailable" in result.response
+    assert "Speech recognition is available" in result.response
+    assert "Speech output is unavailable" in result.response
+    llm.chat.assert_not_called()

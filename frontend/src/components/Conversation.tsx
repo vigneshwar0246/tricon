@@ -9,7 +9,11 @@ function MessageAudio({ url, onSpeakingChange }: { url: string; onSpeakingChange
   const audio = useRef<HTMLAudioElement | null>(null);
   const [playing, setPlaying] = useState(false);
   const [playbackError, setPlaybackError] = useState(false);
-  useEffect(() => () => { audio.current?.pause(); onSpeakingChange(false); }, [onSpeakingChange]);
+  useEffect(() => {
+    const stop = () => { if (audio.current) { audio.current.pause(); audio.current.currentTime = 0; } setPlaying(false); onSpeakingChange(false); };
+    window.addEventListener("ai-voice-stop-speech", stop);
+    return () => { window.removeEventListener("ai-voice-stop-speech", stop); audio.current?.pause(); onSpeakingChange(false); };
+  }, [onSpeakingChange]);
   const toggle = () => {
     audio.current ??= new Audio(url);
     const reset = () => { setPlaying(false); onSpeakingChange(false); };

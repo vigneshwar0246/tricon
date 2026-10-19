@@ -15,7 +15,7 @@ const phaseCopy = {
 } as const;
 
 export function VoiceOrb() {
-  const { phase, toggleRecording } = useVoice();
+  const { phase, toggleRecording, clapEnabled, twoClaps } = useVoice();
   const reduced = useReducedMotion();
   const listening = phase === "listening";
   useEffect(() => {
@@ -42,7 +42,7 @@ export function VoiceOrb() {
         <span className="voice-button-inner">{listening ? <Square fill="currentColor" /> : <Mic />}</span>
       </motion.button>
       <div className={`wave-bars mirrored ${listening ? "active" : ""}`} aria-hidden="true">{[8,18,28,14,22,10].map((height, index) => <i key={index} style={{ height }} />)}</div>
-      <div className="voice-copy" aria-live="polite"><strong>{phaseCopy[phase][0]}</strong><span>{phaseCopy[phase][1]}</span></div>
+      <div className="voice-copy" aria-live="polite"><strong>{phaseCopy[phase][0]}</strong><span>{phase === "armed" ? clapEnabled ? twoClaps ? "clap twice to speak" : "clap to speak" : "no activation trigger enabled" : phaseCopy[phase][1]}</span></div>
     </div>
   );
 }

@@ -29,6 +29,7 @@ export class ClapDetector {
   constructor(private readonly threshold: number, private readonly twoClaps: boolean, private readonly cooldownMs = 2000) {}
 
   accept(frame: AudioFrame, now: number): boolean {
+    // shortcut: Wideband transients can include keyboard impacts; use a trained classifier if room testing shows false triggers.
     const transient = frame.rms >= this.threshold
       && frame.rms >= this.lastFrameRms * 2.8
       && frame.peak >= frame.rms * 1.6

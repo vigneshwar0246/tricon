@@ -96,4 +96,25 @@ From `backend/`, run `python -m pytest`. Tests replace inference with fakes or a
 - Browser microphone errors: open the Vite app on localhost, allow microphone permission, and use a browser with `MediaRecorder` support.
 - If response WAVs are removed, synthesize a new response; generated audio retention is temporary.
 - Conversation sessions are process-local and are lost on restart. This is a local internship/demo app, not an authenticated multi-user deployment.
-- Inference performance, model VRAM use, and CUDA operation are not yet measured. See [benchmark-results.md](benchmark-results.md).
+- Inference timing and model VRAM allocation have sampled measurements, but not a statistically reliable benchmark. CUDA STT inference failed on this machine. See [benchmark-results.md](benchmark-results.md).
+
+## Page-local hands-free path and wake-word limitation
+
+The optional browser loop is **armed → clap detected → acknowledgement tone → capture → silence/timeout → `/api/voice` → playback → armed**. It uses one browser microphone stream, local frame-energy/transient checks, and MediaRecorder; only the captured command clip is uploaded. It stops after five seconds without speech, at 12 seconds maximum, or after configurable post-speech silence (0.6/0.9/1.4 seconds). Default activation requires two clap-like transients 250–900 ms apart, with a 2-second cooldown. The audio threshold is configurable. Mute disables triggering; stop releases tracks and cancels a pending browser request. The loop is suspended while response audio plays, so its own Piper output does not activate it. This is a heuristic, not a trained clap classifier; room noise and microphone characteristics require manual calibration.
+
+No validated local model for the specific word **Carrot** exists in this project. [openWakeWord](https://github.com/dscripka/openWakeWord) supports custom ONNX wake models and Windows ONNX Runtime, but its included models do not establish that “Carrot” works. Its [custom-model configuration](https://github.com/dscripka/openWakeWord/blob/main/examples/custom_model.yml) has a `target_phrase` setting that could be changed to `Carrot`. A real next step is to train a Carrot model, evaluate false accepts/rejects with real voices, then add a browser-to-local-detector audio stream with explicit on/off, threshold, and cooldown. That path has **not** been implemented or verified; the UI keeps Carrot marked unavailable. Do not substitute the built-in “hey jarvis” model or a cloud speech-recognition API and call it Carrot.
+
+The backend reuses one HTTP client for local Ollama requests, limits the model's generated tokens, and keeps its selected model resident for 15 minutes. This reduces connection and repeated model-load overhead at the cost of sustained VRAM allocation. It does not stream LLM text or TTS; response playback begins after complete synthesis. The frontend measures capture duration and time from the last VAD-detected speech frame to browser playback start. This is an estimate of end-to-audio latency, not a microphone-to-ear acoustic measurement.
+
+CUDA is deliberately not enabled by default. On this machine CTranslate2 enumerated one NVIDIA GPU and loaded a CUDA Whisper model, but inference failed with `Library cublas64_12.dll is not found or cannot be loaded`. Install compatible CUDA 12 cuBLAS and cuDNN 9 runtime libraries for the chosen CTranslate2 build, ensure their DLL directory is on PATH, then run a real test transcription before setting `STT_DEVICE=cuda` and `STT_COMPUTE_TYPE=float16`. Merely seeing a CUDA version in `nvidia-smi` is not proof. `GET /api/diagnostics` distinguishes configured device, last successful inference device, CUDA library presence, and Ollama's reported loaded-model VRAM bytes. Piper stays CPU.
+
+Use [Faster-Whisper's GPU requirements](https://github.com/SYSTRAN/faster-whisper#gpu) and the [NVIDIA Windows CUDA installation guide](https://docs.nvidia.com/cuda/cuda-installation-guide-microsoft-windows/) to select compatible installers. After installing, open a **new** PowerShell terminal and verify the DLLs before changing `.env`:
+
+```powershell
+where.exe cublas64_12.dll
+where.exe cudnn64_9.dll
+cd D:\Trikon-Voice-AI\backend
+.\.venv-run\Scripts\python.exe -c "from app.core.config import Settings; from app.services.stt import SpeechToTextService; print(SpeechToTextService(Settings(stt_device='cuda', stt_compute_type='float16')).transcribe('sample.wav'))"
+```
+
+The last command requires an existing short `sample.wav` in `backend/`; use a real clip you recorded. Only a successful non-empty transcription verifies CUDA STT. The PATH checks did not find either DLL in the current terminal, while the runtime separately found cuDNN 9 but failed to load cuBLAS 12. No CUDA package was installed or enabled automatically.

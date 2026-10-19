@@ -16,6 +16,7 @@ export interface Metrics {
   totalMs?: number;
   firstAudioMs?: number;
   captureMs?: number;
+  vadEndMs?: number;
 }
 
 export interface SystemHealth {

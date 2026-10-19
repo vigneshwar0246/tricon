@@ -115,5 +115,7 @@ describe("AI Voice Assistant", () => {
     await user.click(screen.getByRole("button", { name: "Enable hands-free" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("does not support local microphone capture");
     expect(screen.getByRole("status", { name: /error/i })).toBeInTheDocument();
+    await user.click(screen.getByRole("checkbox", { name: "Clap activation" }));
+    expect(screen.getByRole("button", { name: "Enable hands-free" })).toBeDisabled();
   });
 });

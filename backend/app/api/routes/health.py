@@ -23,16 +23,23 @@ async def diagnostics(request: Request) -> dict[str, object]:
     except RuntimeError:
         cuda_devices = 0
     cublas_found = False
+    cudnn_found = False
     if sys.platform == "win32":
         try:
             ctypes.WinDLL("cublas64_12.dll")
             cublas_found = True
         except OSError:
             pass
+        try:
+            ctypes.WinDLL("cudnn64_9.dll")
+            cudnn_found = True
+        except OSError:
+            pass
     try:
         loaded_models = await request.app.state.ollama.loaded_models()
     except OllamaUnavailableError:
         loaded_models = []
+    missing_libraries = [name for name, found in (("cuBLAS 12", cublas_found), ("cuDNN 9", cudnn_found)) if not found]
     return {
         "stt": {
             "configured_device": stt.settings.stt_device,
@@ -42,9 +49,10 @@ async def diagnostics(request: Request) -> dict[str, object]:
         "cuda": {
             "device_count": cuda_devices,
             "cublas12_found": cublas_found,
+            "cudnn9_found": cudnn_found,
             "inference_verified": stt.last_successful_device == "cuda",
-            "detail": "CUDA inference has not been verified; cublas64_12.dll is missing. STT remains on CPU."
-            if sys.platform == "win32" and not cublas_found else "CUDA inference is verified only after a successful STT request using the CUDA device.",
+            "detail": f"CUDA inference is not verified; {', '.join(missing_libraries)} is unavailable. STT remains on CPU."
+            if sys.platform == "win32" and missing_libraries else "CUDA inference is verified only after a successful STT request using the CUDA device.",
         },
         "ollama_loaded_models": loaded_models,
     }

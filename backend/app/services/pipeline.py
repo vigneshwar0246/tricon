@@ -7,8 +7,8 @@ from pathlib import Path
 from time import perf_counter
 from typing import Any
 
-from app.services.llm import OllamaClient, ollama_client
-from app.services.commands import route_command
+from app.services.llm import OllamaClient, OllamaResponseError, OllamaUnavailableError, ollama_client
+from app.services.commands import Command, route_command
 from app.services.session_manager import SessionManager, session_manager
 from app.services.stt import SpeechToTextService, stt_service
 from app.services.tts import TextToSpeechService, tts_service
@@ -71,7 +71,19 @@ class VoicePipeline:
             transcript, _transcription_details = await asyncio.to_thread(self.stt.transcribe, audio_path, language)
             stt_ms = round((perf_counter() - stt_started) * 1000, 2)
             last_response = next((item.content for item in reversed(session.messages) if item.role == "assistant"), None)
-            command = route_command(transcript, last_response)
+            if transcript.lower().strip(" ?.!") in {"system status", "assistant status", "check status", "are you working"}:
+                try:
+                    llm_ready = await self.llm.model_available()
+                except (OllamaUnavailableError, OllamaResponseError):
+                    llm_ready = False
+                command = Command(
+                    f"Backend is responding. Ollama model is {'available' if llm_ready else 'unavailable'}. "
+                    f"Speech recognition is {'available' if self.stt.available else 'unavailable'}. "
+                    f"Speech output is {'available' if self.tts.available else 'unavailable'}. "
+                    "Microphone status is shown in the browser."
+                )
+            else:
+                command = route_command(transcript, last_response)
             if command:
                 response_text = command.response
                 llm_ms = None

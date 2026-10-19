@@ -9,7 +9,7 @@ interface HandsFreeOptions {
   twoClaps: boolean;
   silenceMs: number;
   suspended: boolean;
-  onCommand: (audio: Blob, commandEndedAt: number, captureMs: number) => Promise<void>;
+  onCommand: (audio: Blob, commandEndedAt: number, captureMs: number, vadEndMs: number) => Promise<void>;
   onError: (error: Error) => void;
   onStatusChange: (status: HandsFreeState) => void;
 }
@@ -31,6 +31,7 @@ export function useHandsFree(options: HandsFreeOptions) {
   const speechFramesRef = useRef(0);
   const noiseFloorRef = useRef(0.003);
   const discardRef = useRef(false);
+  const captureStoppedAtRef = useRef(0);
   const generationRef = useRef(0);
   const detectorRef = useRef(new ClapDetector(options.clapThreshold, options.twoClaps));
 
@@ -61,6 +62,7 @@ export function useHandsFree(options: HandsFreeOptions) {
 
   const finishCapture = useCallback((discard: boolean) => {
     discardRef.current = discard;
+    captureStoppedAtRef.current = performance.now();
     if (recorderRef.current?.state === "recording") recorderRef.current.stop();
   }, []);
 
@@ -80,8 +82,11 @@ export function useHandsFree(options: HandsFreeOptions) {
         const generation = generationRef.current;
         changeStatus("processing");
         const audio = new Blob(chunks, { type: recorder.mimeType || "audio/webm" });
-        void optionsRef.current.onCommand(audio, lastSpeechRef.current ?? performance.now(), performance.now() - startedAtRef.current).catch((error: unknown) => {
-          optionsRef.current.onError(error instanceof Error ? error : new Error("Voice request failed."));
+        const commandEndedAt = lastSpeechRef.current ?? captureStoppedAtRef.current;
+        void optionsRef.current.onCommand(audio, commandEndedAt, captureStoppedAtRef.current - startedAtRef.current, captureStoppedAtRef.current - commandEndedAt).catch((error: unknown) => {
+          if (!(error instanceof Error && error.name === "AbortError")) {
+            optionsRef.current.onError(error instanceof Error ? error : new Error("Voice request failed."));
+          }
         }).finally(() => {
           if (generation === generationRef.current) changeStatus(mutedRef.current ? "muted" : "armed");
         });
@@ -165,6 +170,11 @@ export function useHandsFree(options: HandsFreeOptions) {
     const next = !mutedRef.current;
     mutedRef.current = next;
     setMuted(next);
+    if (next && statusRef.current === "wake-detected") {
+      if (activationTimerRef.current !== null) window.clearTimeout(activationTimerRef.current);
+      activationTimerRef.current = null;
+      changeStatus("muted");
+    }
     if (next && statusRef.current === "capturing") finishCapture(true);
     if (statusRef.current === "armed" || statusRef.current === "muted") changeStatus(next ? "muted" : "armed");
   }, [changeStatus, finishCapture]);

@@ -56,6 +56,7 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
   const playback = useRef<HTMLAudioElement | null>(null);
   const finishPlayback = useRef<(() => void) | null>(null);
   const stopHandsFreeRef = useRef<(() => void) | null>(null);
+  const handsFreeAbort = useRef<AbortController | null>(null);
 
   const addMessage = useCallback((role: Message["role"], content: string, audioUrl?: string) => {
     setMessages((current) => [...current, { id: newId(), role, content, audioUrl, createdAt: new Date().toISOString() }]);
@@ -68,27 +69,32 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const stopSpeaking = useCallback(() => {
-    playback.current?.pause();
+    window.dispatchEvent(new Event("ai-voice-stop-speech"));
+    if (playback.current) { playback.current.pause(); playback.current.currentTime = 0; }
     playback.current = null;
     finishPlayback.current?.();
     finishPlayback.current = null;
-    setPhase("idle");
   }, []);
 
-  const handleHandsFreeCommand = useCallback(async (blob: Blob, commandEndedAt: number, captureMs: number) => {
+  const handleHandsFreeCommand = useCallback(async (blob: Blob, commandEndedAt: number, captureMs: number, vadEndMs: number) => {
     setPhase("processing");
-    const result = await sendVoice(blob, sessionId.current, language || undefined);
+    const controller = new AbortController();
+    handsFreeAbort.current = controller;
+    let result;
+    try { result = await sendVoice(blob, sessionId.current, language || undefined, controller.signal); }
+    finally { if (handsFreeAbort.current === controller) handsFreeAbort.current = null; }
+    if (controller.signal.aborted) throw new DOMException("Voice request cancelled.", "AbortError");
     sessionId.current = result.sessionId;
     if (result.action === "clear_conversation") setMessages([]);
     addMessage("user", result.transcript);
     addMessage("assistant", result.content, result.audioUrl);
-    setMetrics({ ...result.metrics, captureMs });
+    setMetrics({ ...result.metrics, captureMs, vadEndMs });
     setPhase("speaking");
     await new Promise<void>((resolve, reject) => {
       const audio = new Audio(result.audioUrl);
       playback.current = audio;
       finishPlayback.current = resolve;
-      audio.onplaying = () => setMetrics({ ...result.metrics, captureMs, firstAudioMs: Math.round(performance.now() - commandEndedAt) });
+      audio.onplaying = () => setMetrics({ ...result.metrics, captureMs, vadEndMs, firstAudioMs: Math.round(performance.now() - commandEndedAt) });
       audio.onended = () => resolve();
       audio.onerror = () => reject(new Error("Generated speech could not be played."));
       void audio.play().catch(reject);
@@ -111,7 +117,13 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
       if (status === "muted" || status === "off") setPhase("idle");
     },
   });
-  useEffect(() => { stopHandsFreeRef.current = handsFree.stop; }, [handsFree.stop]);
+  const stopHandsFreeHook = handsFree.stop;
+  const stopHandsFree = useCallback(() => {
+    handsFreeAbort.current?.abort();
+    stopSpeaking();
+    stopHandsFreeHook();
+  }, [stopHandsFreeHook, stopSpeaking]);
+  useEffect(() => { stopHandsFreeRef.current = stopHandsFree; }, [stopHandsFree]);
 
   const submitText = useCallback(async (text: string) => {
     const clean = text.trim();
@@ -156,6 +168,7 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
           const blob = new Blob(chunks.current, { type: recorder.current?.mimeType || "audio/webm" });
           const result = await sendVoice(blob, sessionId.current, language || undefined);
           sessionId.current = result.sessionId;
+          if (result.action === "clear_conversation") setMessages([]);
           addMessage("user", result.transcript);
           addMessage("assistant", result.content, result.audioUrl);
           setMetrics(result.metrics);
@@ -180,8 +193,8 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const setSpeaking = useCallback((speaking: boolean) => {
-    setPhase((current) => speaking ? "speaking" : current === "speaking" ? "idle" : current);
-  }, []);
+    setPhase((current) => speaking ? "speaking" : current === "speaking" ? handsFree.status === "armed" ? "armed" : "idle" : current);
+  }, [handsFree.status]);
 
   const refreshHealth = useCallback(async () => {
     setHealthLoading(true);
@@ -204,9 +217,9 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
     handsFreeStatus: handsFree.status, handsFreeMuted: handsFree.muted,
     clapEnabled, clapThreshold, twoClaps, silenceMs,
     setClapEnabled, setClapThreshold, setTwoClaps, setSilenceMs,
-    startHandsFree: handsFree.start, stopHandsFree: handsFree.stop,
+    startHandsFree: handsFree.start, stopHandsFree,
     toggleHandsFreeMute: handsFree.toggleMute, stopSpeaking,
-  }), [messages, phase, error, metrics, health, healthLoading, language, submitText, toggleRecording, clearConversation, refreshHealth, setSpeaking, handsFree.status, handsFree.muted, handsFree.start, handsFree.stop, handsFree.toggleMute, clapEnabled, clapThreshold, twoClaps, silenceMs, stopSpeaking]);
+  }), [messages, phase, error, metrics, health, healthLoading, language, submitText, toggleRecording, clearConversation, refreshHealth, setSpeaking, handsFree.status, handsFree.muted, handsFree.start, handsFree.toggleMute, stopHandsFree, clapEnabled, clapThreshold, twoClaps, silenceMs, stopSpeaking]);
   return <VoiceContext.Provider value={value}>{children}</VoiceContext.Provider>;
 }
 

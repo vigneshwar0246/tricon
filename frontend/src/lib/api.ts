@@ -56,14 +56,14 @@ export async function sendText(message: string, sessionId: string) {
   return { content, audioUrl: resolveAudioUrl(audio), sessionId: String(data.session_id ?? sessionId), metrics: parseMetrics(data, performance.now() - started) };
 }
 
-export async function sendVoice(blob: Blob, sessionId: string, language?: string) {
+export async function sendVoice(blob: Blob, sessionId: string, language?: string, signal?: AbortSignal) {
   const body = new FormData();
   const extension = blob.type.includes("ogg") ? "ogg" : blob.type.includes("mp4") ? "mp4" : "webm";
   body.append("audio", blob, `voice.${extension}`);
   body.append("session_id", sessionId);
   if (language) body.append("language", language);
   const started = performance.now();
-  const data = await parseResponse(await fetch(`${API_BASE}/api/voice`, { method: "POST", body }));
+  const data = await parseResponse(await fetch(`${API_BASE}/api/voice`, { method: "POST", body, signal }));
   const transcript = readPath(data, ["transcript", "user_text", "input"]);
   const content = readPath(data, ["response", "message", "text", "assistant_text"]);
   const audio = readPath(data, ["audio_url", "audio.url", "tts_url"]);
