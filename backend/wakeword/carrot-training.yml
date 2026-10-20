@@ -1,0 +1,31 @@
+# Starting point only. Supply and verify every referenced dataset and license
+# before running. Paths are resolved from the current working directory.
+model_name: carrot
+target_phrase:
+  - Carrot
+custom_negative_phrases: []
+n_samples: 20000
+n_samples_val: 4000
+tts_batch_size: 16
+augmentation_batch_size: 8
+piper_sample_generator_path: ./piper-sample-generator
+output_dir: ./backend/models/wakeword-training
+rir_paths:
+  - ./backend/wakeword/data/rirs
+background_paths:
+  - ./backend/wakeword/data/background
+background_paths_duplication_rate:
+  - 1
+false_positive_validation_data_path: ./backend/wakeword/data/false-positive-validation.npy
+augmentation_rounds: 1
+feature_data_files:
+  reviewed_speech: ./backend/wakeword/data/reviewed-speech-features.npy
+batch_n_per_class:
+  reviewed_speech: 256
+  adversarial_negative: 32
+  positive: 32
+model_type: dnn
+layer_size: 32
+steps: 20000
+max_negative_weight: 1500
+target_false_positives_per_hour: 0.2

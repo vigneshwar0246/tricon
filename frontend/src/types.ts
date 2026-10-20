@@ -1,4 +1,4 @@
-export type AssistantPhase = "idle" | "requesting-permission" | "armed" | "wake-detected" | "listening" | "processing" | "speaking" | "error";
+export type AssistantPhase = "idle" | "requesting-permission" | "armed" | "listening" | "processing" | "speaking" | "error";
 export type ServiceState = "unknown" | "ready" | "unavailable";
 
 export interface Message {

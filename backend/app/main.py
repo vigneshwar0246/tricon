@@ -35,6 +35,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         sessions=app.state.sessions,
         stt=app.state.stt,
         tts=app.state.tts,
+        voice_num_predict=settings.voice_num_predict,
     )
     try:
         yield

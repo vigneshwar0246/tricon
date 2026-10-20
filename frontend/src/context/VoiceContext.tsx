@@ -19,13 +19,7 @@ interface VoiceContextValue {
   setSpeaking: (speaking: boolean) => void;
   handsFreeStatus: string;
   handsFreeMuted: boolean;
-  clapEnabled: boolean;
-  clapThreshold: number;
-  twoClaps: boolean;
   silenceMs: number;
-  setClapEnabled: (enabled: boolean) => void;
-  setClapThreshold: (threshold: number) => void;
-  setTwoClaps: (enabled: boolean) => void;
   setSilenceMs: (duration: number) => void;
   startHandsFree: () => Promise<void>;
   stopHandsFree: () => void;
@@ -49,9 +43,6 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
   const recorder = useRef<MediaRecorder | null>(null);
   const stream = useRef<MediaStream | null>(null);
   const chunks = useRef<Blob[]>([]);
-  const [clapEnabled, setClapEnabled] = useState(true);
-  const [clapThreshold, setClapThreshold] = useState(0.09);
-  const [twoClaps, setTwoClaps] = useState(true);
   const [silenceMs, setSilenceMs] = useState(900);
   const playback = useRef<HTMLAudioElement | null>(null);
   const finishPlayback = useRef<(() => void) | null>(null);
@@ -106,13 +97,12 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
   }, [addMessage, language]);
 
   const handsFree = useHandsFree({
-    clapEnabled, clapThreshold, twoClaps, silenceMs,
+    silenceMs,
     suspended: phase === "processing" || phase === "speaking",
     onCommand: handleHandsFreeCommand,
     onError: handleError,
     onStatusChange: (status) => {
       if (status === "armed") setPhase("armed");
-      if (status === "wake-detected") setPhase("wake-detected");
       if (status === "capturing") setPhase("listening");
       if (status === "muted" || status === "off") setPhase("idle");
     },
@@ -215,11 +205,10 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
     messages, phase, error, metrics, health, healthLoading, language, setLanguage, submitText,
     toggleRecording, clearConversation, refreshHealth, setSpeaking,
     handsFreeStatus: handsFree.status, handsFreeMuted: handsFree.muted,
-    clapEnabled, clapThreshold, twoClaps, silenceMs,
-    setClapEnabled, setClapThreshold, setTwoClaps, setSilenceMs,
+    silenceMs, setSilenceMs,
     startHandsFree: handsFree.start, stopHandsFree,
     toggleHandsFreeMute: handsFree.toggleMute, stopSpeaking,
-  }), [messages, phase, error, metrics, health, healthLoading, language, submitText, toggleRecording, clearConversation, refreshHealth, setSpeaking, handsFree.status, handsFree.muted, handsFree.start, handsFree.toggleMute, stopHandsFree, clapEnabled, clapThreshold, twoClaps, silenceMs, stopSpeaking]);
+  }), [messages, phase, error, metrics, health, healthLoading, language, submitText, toggleRecording, clearConversation, refreshHealth, setSpeaking, handsFree.status, handsFree.muted, handsFree.start, handsFree.toggleMute, stopHandsFree, silenceMs, stopSpeaking]);
   return <VoiceContext.Provider value={value}>{children}</VoiceContext.Provider>;
 }
 

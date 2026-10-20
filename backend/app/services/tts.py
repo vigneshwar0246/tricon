@@ -1,8 +1,10 @@
 """Lazy local Piper speech synthesis. Voice files are never downloaded here."""
 
 import logging
+import re
 import threading
 import time
+import unicodedata
 import wave
 from importlib.util import find_spec
 from pathlib import Path
@@ -19,6 +21,25 @@ class VoiceModelNotInstalledError(RuntimeError):
 
 class SpeechSynthesisError(RuntimeError):
     pass
+
+
+def to_spoken_text(text: str) -> str:
+    """Remove presentation markup and code that should not be read aloud."""
+    includes_code = bool(re.search(r"```|`[^`]+`", text))
+    text = re.sub(r"```[\s\S]*?```", " ", text)
+    text = re.sub(r"`[^`]*`", " ", text)
+    text = re.sub(r"!?\[([^\]]*)\]\([^)]*\)", r"\1", text)
+    text = re.sub(r"\b(?:https?://|www\.)\S+", " ", text, flags=re.IGNORECASE)
+    text = re.sub(r"(?m)^\s{0,3}#{1,6}\s*", "", text)
+    text = re.sub(r"(?m)^\s*(?:[-*+]\s+|\d+[.)]\s+)", "", text)
+    text = re.sub(r"[*_~#|]+", "", text)
+    text = text.replace("&", " and ").replace("+", " plus ").replace("=", " equals ")
+    text = text.replace("@", " at ").replace("%", " percent ").replace("/", " or ")
+    text = "".join(character for character in text if not unicodedata.category(character).startswith("S"))
+    text = " ".join(text.split())
+    if includes_code:
+        text = f"{text} I've included the code in the text response.".strip()
+    return text or "I do not have a spoken response for that yet."
 
 
 class TextToSpeechService:
@@ -70,8 +91,10 @@ class TextToSpeechService:
         output_path = self.settings.audio_output_dir / f"{uuid4().hex}.wav"
         started = perf_counter()
         try:
+            from piper.config import SynthesisConfig
+
             with wave.open(str(output_path), "wb") as wav_file:
-                voice.synthesize_wav(text, wav_file)
+                voice.synthesize_wav(to_spoken_text(text), wav_file, syn_config=SynthesisConfig(length_scale=0.92))
         except Exception as exc:
             output_path.unlink(missing_ok=True)
             logger.exception("Piper speech synthesis failed")

@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     ollama_temperature: float = Field(default=0.7, ge=0, le=2)
     ollama_num_ctx: int = Field(default=4096, ge=512, le=32768)
     ollama_num_predict: int = Field(default=160, ge=16, le=1024)
+    voice_num_predict: int = Field(default=80, ge=16, le=256)
 
     session_max_turns: int = Field(default=12, ge=1, le=100)
     session_max_count: int = Field(default=500, ge=1, le=10000)

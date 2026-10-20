@@ -107,15 +107,32 @@ describe("AI Voice Assistant", () => {
     expect(await screen.findByText("Tap to speak")).toBeInTheDocument();
   });
 
-  it("shows honest hands-free availability and safely handles an unsupported microphone", async () => {
+  it("explains continuous hands-free listening and handles an unsupported microphone", async () => {
     vi.stubGlobal("MediaRecorder", undefined);
     const user = userEvent.setup();
     render(<MemoryRouter><App /></MemoryRouter>);
-    expect(screen.getByText(/Carrot.*requires a trained local wake-word model/)).toBeInTheDocument();
+    expect(screen.getByText(/Enable hands-free once and start speaking naturally/)).toBeInTheDocument();
+    expect(screen.queryByText(/Clap activation/)).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Enable hands-free" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("does not support local microphone capture");
     expect(screen.getByRole("status", { name: /error/i })).toBeInTheDocument();
-    await user.click(screen.getByRole("checkbox", { name: "Clap activation" }));
-    expect(screen.getByRole("button", { name: "Enable hands-free" })).toBeDisabled();
+  });
+
+  it("displays the cinematic intro on first visit and enters the dashboard on click", async () => {
+    sessionStorage.removeItem("intro_seen");
+    const user = userEvent.setup();
+    render(<MemoryRouter initialEntries={["/"]}><App /></MemoryRouter>);
+
+    expect(screen.getByText("AI VOICE ASSISTANT")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Meet Your AI Voice Assistant." })).toBeInTheDocument();
+    expect(screen.getByText("A more natural way to interact with AI.")).toBeInTheDocument();
+    
+    const enterBtn = screen.getByRole("button", { name: /enter the ai voice assistant/i });
+    expect(enterBtn).toBeInTheDocument();
+    await user.click(enterBtn);
+
+    // After enter click and fade transition
+    expect(sessionStorage.getItem("intro_seen")).toBe("1");
   });
 });
+

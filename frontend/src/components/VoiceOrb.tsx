@@ -6,16 +6,15 @@ import { useVoice } from "../context/VoiceContext";
 const phaseCopy = {
   idle: ["Tap to speak", "or press the spacebar"],
   "requesting-permission": ["Opening microphone", "check your browser permission"],
-  armed: ["Hands-free armed", "clap twice to speak"],
-  "wake-detected": ["Activated", "speak after the tone"],
-  listening: ["Listening", "tap again when you are done"],
+  armed: ["Hands-free ready", "starting microphone"],
+  listening: ["Listening", "pause when you are done speaking"],
   processing: ["Thinking", "your local models are working"],
   speaking: ["Speaking", "playing the generated response"],
   error: ["Ready to try again", "check the message below"],
 } as const;
 
 export function VoiceOrb() {
-  const { phase, toggleRecording, clapEnabled, twoClaps } = useVoice();
+  const { phase, toggleRecording } = useVoice();
   const reduced = useReducedMotion();
   const listening = phase === "listening";
   useEffect(() => {
@@ -42,7 +41,7 @@ export function VoiceOrb() {
         <span className="voice-button-inner">{listening ? <Square fill="currentColor" /> : <Mic />}</span>
       </motion.button>
       <div className={`wave-bars mirrored ${listening ? "active" : ""}`} aria-hidden="true">{[8,18,28,14,22,10].map((height, index) => <i key={index} style={{ height }} />)}</div>
-      <div className="voice-copy" aria-live="polite"><strong>{phaseCopy[phase][0]}</strong><span>{phase === "armed" ? clapEnabled ? twoClaps ? "clap twice to speak" : "clap to speak" : "no activation trigger enabled" : phaseCopy[phase][1]}</span></div>
+      <div className="voice-copy" aria-live="polite"><strong>{phaseCopy[phase][0]}</strong><span>{phaseCopy[phase][1]}</span></div>
     </div>
   );
 }

@@ -24,6 +24,10 @@ class SpeechToTextService:
         self.settings = settings or get_settings()
         self._model: Any = None
         self._model_lock = threading.Lock()
+        self._inference_lock = threading.Lock()
+        self.active_device = self.settings.stt_device
+        self.active_compute_type = self.settings.stt_compute_type
+        self.fallback_reason: str | None = None
         self.last_successful_device: str | None = None
 
     @property
@@ -47,34 +51,71 @@ class SpeechToTextService:
                     raise SpeechModelNotInstalledError(
                         f"Faster-Whisper package or required model files (model.bin, config.json, vocabulary) are missing at '{model_path}'. Follow docs/architecture.md."
                     )
-                try:
-                    from faster_whisper import WhisperModel
-                except ImportError as exc:
-                    raise SpeechModelNotInstalledError("faster-whisper is not installed in this environment.") from exc
-                # A directory is passed intentionally: CTranslate2 loads local files and does not contact Hugging Face.
-                self._model = WhisperModel(
-                    str(model_path),
-                    device=self.settings.stt_device,
-                    compute_type=self.settings.stt_compute_type,
-                )
+                if self.settings.stt_device.lower() == "cuda":
+                    try:
+                        self._model = self._load_model("cuda", self.settings.stt_compute_type)
+                    except Exception as exc:
+                        self._fallback_to_cpu(exc)
+                else:
+                    self._model = self._load_model(self.settings.stt_device, self.settings.stt_compute_type)
         return self._model
+
+    def _load_model(self, device: str, compute_type: str) -> Any:
+        try:
+            from faster_whisper import WhisperModel
+        except ImportError as exc:
+            raise SpeechModelNotInstalledError("faster-whisper is not installed in this environment.") from exc
+        # A directory is passed intentionally: CTranslate2 loads local files and does not contact Hugging Face.
+        model = WhisperModel(
+            str(self.settings.stt_model_path),
+            device=device,
+            compute_type=compute_type,
+        )
+        self.active_device = device
+        self.active_compute_type = compute_type
+        return model
+
+    def _fallback_to_cpu(self, reason: Exception) -> None:
+        self.fallback_reason = f"{type(reason).__name__}: {reason}"[:300]
+        logger.warning("CUDA STT failed; retrying with CPU/int8: %s", self.fallback_reason)
+        self._model = self._load_model("cpu", "int8")
+
+    @staticmethod
+    def _is_cuda_runtime_error(error: Exception) -> bool:
+        detail = str(error).lower()
+        return any(token in detail for token in (
+            "cuda", "cublas", "cudnn", "gpu driver", "no kernel image",
+        ))
+
+    def _transcribe_with_model(self, model: Any, audio_path: str | Path, language: str | None) -> tuple[str, Any]:
+        segments, info = model.transcribe(
+            str(audio_path),
+            language=language or self.settings.stt_language,
+            beam_size=5,
+            vad_filter=True,
+        )
+        duration = getattr(info, "duration", None)
+        if duration is not None and duration > self.settings.audio_max_duration_seconds:
+            raise TranscriptionError(
+                f"Audio is longer than the {self.settings.audio_max_duration_seconds}-second limit."
+            )
+        # Segment iteration performs inference, so keep it inside this service call.
+        text = " ".join(segment.text.strip() for segment in segments).strip()
+        if not text:
+            raise TranscriptionError("No speech was detected in the uploaded audio.")
+        return text, info
 
     def transcribe(self, audio_path: str | Path, language: str | None = None) -> tuple[str, dict[str, Any]]:
         try:
-            model = self._get_model()
-            segments, info = model.transcribe(
-                str(audio_path),
-                language=language or self.settings.stt_language,
-                beam_size=5,
-                vad_filter=True,
-            )
-            duration = getattr(info, "duration", None)
-            if duration is not None and duration > self.settings.audio_max_duration_seconds:
-                raise TranscriptionError(
-                    f"Audio is longer than the {self.settings.audio_max_duration_seconds}-second limit."
-                )
-            # Segment iteration performs inference, so keep it inside this service call.
-            text = " ".join(segment.text.strip() for segment in segments).strip()
+            with self._inference_lock:
+                model = self._get_model()
+                try:
+                    text, info = self._transcribe_with_model(model, audio_path, language)
+                except Exception as exc:
+                    if self.active_device != "cuda" or not self._is_cuda_runtime_error(exc):
+                        raise
+                    self._fallback_to_cpu(exc)
+                    text, info = self._transcribe_with_model(self._model, audio_path, language)
         except TranscriptionError:
             raise
         except SpeechModelNotInstalledError:
@@ -82,9 +123,7 @@ class SpeechToTextService:
         except Exception as exc:  # decoder errors vary by uploaded container/codec
             logger.exception("Speech transcription failed")
             raise TranscriptionError("The audio could not be transcribed. Use a supported audio file and try again.") from exc
-        if not text:
-            raise TranscriptionError("No speech was detected in the uploaded audio.")
-        self.last_successful_device = self.settings.stt_device
+        self.last_successful_device = self.active_device
         return text, {
             "language": getattr(info, "language", None),
             "language_probability": getattr(info, "language_probability", None),

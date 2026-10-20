@@ -13,6 +13,13 @@ from app.services.session_manager import SessionManager, session_manager
 from app.services.stt import SpeechToTextService, stt_service
 from app.services.tts import TextToSpeechService, tts_service
 
+VOICE_SYSTEM_PROMPT = (
+    "You are a friendly voice assistant speaking to one person. Answer directly in one or two short, natural sentences, "
+    "usually under 35 words. Use plain spoken language. Do not use markdown, headings, bullets, emoji, code, URLs, "
+    "formatting, or raw symbol characters. Never read out punctuation or symbol names. Explain technical ideas simply. "
+    "Give more detail only when the user asks for it. If the request is unclear, ask one concise clarifying question."
+)
+
 
 @dataclass
 class PipelineResult:
@@ -40,11 +47,13 @@ class VoicePipeline:
         sessions: SessionManager | None = None,
         stt: SpeechToTextService | None = None,
         tts: TextToSpeechService | None = None,
+        voice_num_predict: int = 80,
     ) -> None:
         self.llm = llm or ollama_client
         self.sessions = sessions or session_manager
         self.stt = stt or stt_service
         self.tts = tts or tts_service
+        self.voice_num_predict = voice_num_predict
 
     async def chat(self, message: str, session_id: str | None = None) -> ChatResult:
         started = perf_counter()
@@ -88,10 +97,13 @@ class VoicePipeline:
                 response_text = command.response
                 llm_ms = None
             else:
-                messages: list[dict[str, Any]] = self.sessions.history(session)
+                messages: list[dict[str, Any]] = [
+                    {"role": "system", "content": VOICE_SYSTEM_PROMPT},
+                    *self.sessions.history(session),
+                ]
                 messages.append({"role": "user", "content": transcript})
                 llm_started = perf_counter()
-                response_text, metadata = await self.llm.chat(messages)
+                response_text, metadata = await self.llm.chat(messages, num_predict=self.voice_num_predict)
                 measured_llm_ms = round((perf_counter() - llm_started) * 1000, 2)
                 reported_llm_ms = round((metadata.get("total_duration", 0) or 0) / 1_000_000, 2)
                 llm_ms = reported_llm_ms if reported_llm_ms > 0 else measured_llm_ms

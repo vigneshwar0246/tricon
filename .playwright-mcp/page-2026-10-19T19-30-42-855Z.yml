@@ -1,0 +1,8 @@
+- generic [ref=e3]:
+  - banner "Intro header" [ref=e4]:
+    - paragraph [ref=e5]: AI VOICE ASSISTANT
+    - heading "Meet Your AI Voice Assistant." [level=1] [ref=e6]
+  - region "Intro animation" [ref=e7]
+  - paragraph [ref=e9]: A more natural way to interact with AI.
+  - contentinfo "Intro actions" [ref=e10]:
+    - button "Enter the AI Voice Assistant" [ref=e11] [cursor=pointer]: ENTER ASSISTANT →

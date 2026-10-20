@@ -181,3 +181,192 @@ main { min-width: 0; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+/* ═══════════════════════════════════════════
+   INTRO SCREEN
+   Layout: header / video-stage / tagline / footer
+   Text & button stay outside the video so the
+   glass sphere and waveforms are never obstructed.
+═══════════════════════════════════════════ */
+
+.intro-shell {
+  display: grid;
+  grid-template-rows: auto 1fr auto auto;
+  min-height: 100dvh;
+  width: 100%;
+  background: radial-gradient(circle at 50% -5%, rgba(255,122,26,.12), transparent 35%),
+              var(--paper);
+  overflow: hidden;
+  opacity: 1;
+  transition: opacity .6s ease, transform .6s ease;
+}
+
+.intro-shell.intro-exit {
+  opacity: 0;
+  transform: scale(.98);
+  pointer-events: none;
+}
+
+/* ── Header ── */
+.intro-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: clamp(1.5rem, 4vh, 3rem) 1.5rem clamp(.75rem, 2vh, 1.5rem);
+  text-align: center;
+}
+
+.intro-overline {
+  margin: 0 0 .75rem;
+  color: #9a603e;
+  font-size: .6rem;
+  font-weight: 750;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+}
+
+.intro-headline {
+  margin: 0;
+  color: var(--ink);
+  font-size: clamp(1.75rem, 4.5vw, 3.25rem);
+  font-weight: 800;
+  letter-spacing: -.055em;
+  line-height: 1.05;
+}
+
+/* ── Video stage ── */
+.intro-video-stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 0;           /* let grid row shrink on short screens */
+  padding: 0 clamp(1rem, 4vw, 4rem);
+}
+
+.intro-video {
+  display: block;
+  width: 100%;
+  max-width: min(620px, 90vw);
+  max-height: calc(100dvh - 22rem); /* keep header + tagline + footer visible */
+  object-fit: contain;              /* never stretch or crop */
+  border-radius: 1rem;
+  /* preserve alpha channel for transparent backgrounds */
+  mix-blend-mode: normal;
+}
+
+/* Fallback when video fails to load */
+.intro-video-fallback {
+  width: min(420px, 80vw);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%,
+    rgba(255,180,100,.35),
+    rgba(255,101,0,.55) 55%,
+    rgba(220,80,0,.4));
+  box-shadow: 0 0 80px rgba(255,101,0,.25), 0 0 160px rgba(255,101,0,.08);
+}
+
+/* ── Sub-copy tagline ── */
+.intro-tagline {
+  margin: 0;
+  padding: clamp(.75rem, 2vh, 1.25rem) 1.5rem clamp(.5rem, 1.5vh, 1rem);
+  color: var(--muted);
+  font-size: clamp(.78rem, 1.6vw, .95rem);
+  line-height: 1.6;
+  text-align: center;
+}
+
+/* ── Footer / CTA ── */
+.intro-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(.75rem, 2.5vh, 1.75rem) 1.5rem clamp(1.5rem, 4vh, 3rem);
+}
+
+/* Premium pill button */
+.intro-enter-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .5rem;
+  padding: .85rem 2.4rem;
+  color: white;
+  background: linear-gradient(135deg, var(--orange-secondary, #ff7a1a), var(--orange, #ff6500));
+  border: 0;
+  border-radius: 999px;
+  font-size: clamp(.78rem, 1.5vw, .92rem);
+  font-weight: 750;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow:
+    0 0 0 0 rgba(255,101,0,.0),
+    0 8px 24px rgba(255,101,0,.28),
+    0 2px 6px rgba(255,101,0,.18);
+  transition:
+    transform .22s cubic-bezier(.22,1,.36,1),
+    box-shadow .22s cubic-bezier(.22,1,.36,1),
+    background .22s ease;
+  /* Ensure it's always visible */
+  position: relative;
+  z-index: 1;
+}
+
+.intro-enter-btn:hover {
+  transform: translateY(-3px) scale(1.025);
+  box-shadow:
+    0 0 0 6px rgba(255,101,0,.1),
+    0 14px 36px rgba(255,101,0,.35),
+    0 4px 10px rgba(255,101,0,.22);
+  background: linear-gradient(135deg, #ff8c33, #ff6500);
+}
+
+.intro-enter-btn:active {
+  transform: translateY(-1px) scale(1.01);
+  transition-duration: .08s;
+}
+
+.intro-enter-btn:focus-visible {
+  outline: 3px solid rgba(255,101,0,.45);
+  outline-offset: 4px;
+}
+
+/* ── Short screens: clamp video height so button stays visible ── */
+@media (max-height: 600px) {
+  .intro-video {
+    max-height: calc(100dvh - 16rem);
+  }
+  .intro-header {
+    padding-block: .75rem .5rem;
+  }
+  .intro-tagline {
+    display: none; /* hide tagline on very short screens, keep core UI */
+  }
+}
+
+/* ── Narrow screens ── */
+@media (max-width: 480px) {
+  .intro-video {
+    max-width: 95vw;
+    border-radius: .5rem;
+  }
+  .intro-enter-btn {
+    width: 100%;
+    max-width: 22rem;
+    padding: .9rem 1.5rem;
+  }
+}
+
+/* ── Reduced-motion: skip all intro transitions ── */
+@media (prefers-reduced-motion: reduce) {
+  .intro-shell,
+  .intro-shell.intro-exit,
+  .intro-enter-btn {
+    transition: none !important;
+    transform: none !important;
+    animation: none !important;
+  }
+}
+

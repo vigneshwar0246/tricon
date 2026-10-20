@@ -21,8 +21,10 @@ async def test_ollama_connection_reuse_and_generation_limit() -> None:
     try:
         assert (await client.chat([{"role": "user", "content": "Hello"}]))[0] == "real upstream text"
         assert (await client.chat([{"role": "user", "content": "Again"}]))[0] == "real upstream text"
+        assert (await client.chat([{"role": "user", "content": "Voice"}], num_predict=64))[0] == "real upstream text"
         assert client._client is connection
-        assert all(item["options"]["num_predict"] == 96 and item["keep_alive"] == "15m" for item in requests)
+        assert [item["options"]["num_predict"] for item in requests] == [96, 96, 64]
+        assert all(item["keep_alive"] == "15m" for item in requests)
     finally:
         await client.close()
     assert connection.is_closed

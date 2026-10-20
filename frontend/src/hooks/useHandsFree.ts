@@ -1,12 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { analyzeAudioFrame, ClapDetector, commandCaptureDecision } from "../lib/audioDetectors";
+import { analyzeAudioFrame, commandCaptureDecision } from "../lib/audioDetectors";
 
-export type HandsFreeState = "off" | "permission" | "armed" | "wake-detected" | "capturing" | "processing" | "muted" | "error";
+export type HandsFreeState = "off" | "permission" | "armed" | "capturing" | "processing" | "muted" | "error";
 
 interface HandsFreeOptions {
-  clapEnabled: boolean;
-  clapThreshold: number;
-  twoClaps: boolean;
   silenceMs: number;
   suspended: boolean;
   onCommand: (audio: Blob, commandEndedAt: number, captureMs: number, vadEndMs: number) => Promise<void>;
@@ -23,8 +20,8 @@ export function useHandsFree(options: HandsFreeOptions) {
   const streamRef = useRef<MediaStream | null>(null);
   const contextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
+  const samplesRef = useRef<Float32Array<ArrayBuffer> | null>(null);
   const timerRef = useRef<number | null>(null);
-  const activationTimerRef = useRef<number | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const startedAtRef = useRef(0);
   const lastSpeechRef = useRef<number | null>(null);
@@ -33,7 +30,7 @@ export function useHandsFree(options: HandsFreeOptions) {
   const discardRef = useRef(false);
   const captureStoppedAtRef = useRef(0);
   const generationRef = useRef(0);
-  const detectorRef = useRef(new ClapDetector(options.clapThreshold, options.twoClaps));
+  const startCaptureRef = useRef<() => void>(() => {});
 
   useEffect(() => { optionsRef.current = options; }, [options]);
 
@@ -46,17 +43,16 @@ export function useHandsFree(options: HandsFreeOptions) {
   const stop = useCallback(() => {
     generationRef.current += 1;
     if (timerRef.current !== null) window.clearInterval(timerRef.current);
-    if (activationTimerRef.current !== null) window.clearTimeout(activationTimerRef.current);
     timerRef.current = null;
-    activationTimerRef.current = null;
     discardRef.current = true;
     if (recorderRef.current?.state === "recording") recorderRef.current.stop();
     recorderRef.current = null;
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
-    void contextRef.current?.close();
+    void contextRef.current?.close().catch(() => undefined);
     contextRef.current = null;
     analyserRef.current = null;
+    samplesRef.current = null;
     changeStatus("off");
   }, [changeStatus]);
 
@@ -68,15 +64,22 @@ export function useHandsFree(options: HandsFreeOptions) {
 
   const startCapture = useCallback(() => {
     const stream = streamRef.current;
-    if (!stream || statusRef.current !== "wake-detected") return;
+    if (!stream || statusRef.current !== "armed") return;
     try {
       const recorder = new MediaRecorder(stream);
       const chunks: Blob[] = [];
+      const captureGeneration = generationRef.current;
       recorderRef.current = recorder;
       recorder.ondataavailable = (event) => { if (event.data.size) chunks.push(event.data); };
       recorder.onstop = () => {
+        if (captureGeneration !== generationRef.current) return;
         if (discardRef.current || !chunks.length) {
-          changeStatus(mutedRef.current ? "muted" : "armed");
+          if (mutedRef.current) {
+            changeStatus("muted");
+          } else {
+            changeStatus("armed");
+            startCaptureRef.current();
+          }
           return;
         }
         const generation = generationRef.current;
@@ -88,7 +91,14 @@ export function useHandsFree(options: HandsFreeOptions) {
             optionsRef.current.onError(error instanceof Error ? error : new Error("Voice request failed."));
           }
         }).finally(() => {
-          if (generation === generationRef.current) changeStatus(mutedRef.current ? "muted" : "armed");
+          if (generation === generationRef.current) {
+            if (mutedRef.current) {
+              changeStatus("muted");
+            } else {
+              changeStatus("armed");
+              startCaptureRef.current();
+            }
+          }
         });
       };
       recorder.start();
@@ -106,33 +116,20 @@ export function useHandsFree(options: HandsFreeOptions) {
   const tick = useCallback(() => {
     const analyser = analyserRef.current;
     if (!analyser || optionsRef.current.suspended) return;
-    const samples = new Float32Array(analyser.fftSize);
+    const samples: Float32Array<ArrayBuffer> = samplesRef.current ??= new Float32Array(analyser.fftSize);
     analyser.getFloatTimeDomainData(samples);
     const frame = analyzeAudioFrame(samples);
     const now = performance.now();
-    if (statusRef.current === "armed") {
-      noiseFloorRef.current = Math.min(0.03, noiseFloorRef.current * 0.97 + frame.rms * 0.03);
-      if (!optionsRef.current.clapEnabled || !detectorRef.current.accept(frame, now)) return;
-      changeStatus("wake-detected");
-      const context = contextRef.current;
-      if (context) {
-        const tone = context.createOscillator();
-        const gain = context.createGain();
-        gain.gain.value = 0.035;
-        tone.frequency.value = 880;
-        tone.connect(gain).connect(context.destination);
-        tone.start();
-        tone.stop(context.currentTime + 0.09);
-      }
-      activationTimerRef.current = window.setTimeout(startCapture, 180);
-    } else if (statusRef.current === "capturing") {
+    if (statusRef.current === "capturing") {
       const speech = frame.rms > Math.max(0.015, noiseFloorRef.current * 2.7);
       speechFramesRef.current = speech ? speechFramesRef.current + 1 : 0;
       if (speechFramesRef.current >= 2) lastSpeechRef.current = now;
+      if (!speech) noiseFloorRef.current = Math.min(0.03, noiseFloorRef.current * 0.98 + frame.rms * 0.02);
       const decision = commandCaptureDecision(now, startedAtRef.current, lastSpeechRef.current, optionsRef.current.silenceMs);
       if (decision !== "continue") finishCapture(decision === "discard");
     }
-  }, [changeStatus, finishCapture, startCapture]);
+  }, [finishCapture]);
+  useEffect(() => { startCaptureRef.current = startCapture; }, [startCapture]);
 
   const start = useCallback(async () => {
     if (statusRef.current !== "off" && statusRef.current !== "error") return;
@@ -144,44 +141,60 @@ export function useHandsFree(options: HandsFreeOptions) {
     const generation = generationRef.current;
     changeStatus("permission");
     try {
+      // Create/resume AudioContext inside the click gesture, before the permission prompt
+      // can consume browser user activation.
+      const context = new AudioContext();
+      contextRef.current = context;
+      const audioReady = context.resume().then(() => null, (error: unknown) => error);
       const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
       if (generation !== generationRef.current) { stream.getTracks().forEach((track) => track.stop()); return; }
-      const context = new AudioContext();
-      await context.resume();
-      const analyser = context.createAnalyser();
-      analyser.fftSize = 1024;
-      context.createMediaStreamSource(stream).connect(analyser);
-      stream.getAudioTracks().forEach((track) => { track.onended = () => { optionsRef.current.onError(new Error("Microphone disconnected.")); stop(); }; });
       streamRef.current = stream;
-      contextRef.current = context;
+      const resumeError = await audioReady;
+      if (resumeError !== null) throw resumeError;
+      if (generation !== generationRef.current) return;
+      const analyser = context.createAnalyser();
+      // Small overlapping frames keep speech endpoint detection responsive.
+      analyser.fftSize = 512;
+      context.createMediaStreamSource(stream).connect(analyser);
+      // Keep the analyser in the active audio graph without monitoring the mic
+      // through the speakers (which would create feedback and false activations).
+      const silentOutput = context.createGain();
+      silentOutput.gain.value = 0;
+      analyser.connect(silentOutput);
+      silentOutput.connect(context.destination);
+      stream.getAudioTracks().forEach((track) => { track.onended = () => { optionsRef.current.onError(new Error("Microphone disconnected.")); stop(); }; });
       analyserRef.current = analyser;
       noiseFloorRef.current = 0.003;
-      detectorRef.current = new ClapDetector(optionsRef.current.clapThreshold, optionsRef.current.twoClaps);
-      changeStatus(mutedRef.current ? "muted" : "armed");
-      timerRef.current = window.setInterval(tick, 50);
+      samplesRef.current = new Float32Array(analyser.fftSize);
+      timerRef.current = window.setInterval(tick, 10);
+      if (mutedRef.current) {
+        changeStatus("muted");
+      } else {
+        changeStatus("armed");
+        startCapture();
+      }
     } catch (error) {
+      if (generation !== generationRef.current) return;
       stop();
       optionsRef.current.onError(error instanceof Error ? error : new Error("Microphone permission failed."));
       changeStatus("error");
     }
-  }, [changeStatus, stop, tick]);
+  }, [changeStatus, startCapture, stop, tick]);
 
   const toggleMute = useCallback(() => {
     const next = !mutedRef.current;
     mutedRef.current = next;
     setMuted(next);
-    if (next && statusRef.current === "wake-detected") {
-      if (activationTimerRef.current !== null) window.clearTimeout(activationTimerRef.current);
-      activationTimerRef.current = null;
-      changeStatus("muted");
-    }
     if (next && statusRef.current === "capturing") finishCapture(true);
-    if (statusRef.current === "armed" || statusRef.current === "muted") changeStatus(next ? "muted" : "armed");
-  }, [changeStatus, finishCapture]);
-
-  useEffect(() => {
-    detectorRef.current = new ClapDetector(options.clapThreshold, options.twoClaps);
-  }, [options.clapThreshold, options.twoClaps]);
+    if (statusRef.current === "armed" || statusRef.current === "muted") {
+      if (next) {
+        changeStatus("muted");
+      } else {
+        changeStatus("armed");
+        startCapture();
+      }
+    }
+  }, [changeStatus, finishCapture, startCapture]);
   useEffect(() => () => stop(), [stop]);
 
   return { status, muted, start, stop, toggleMute };

@@ -21,33 +21,6 @@ export function analyzeAudioFrame(samples: Float32Array): AudioFrame {
   };
 }
 
-export class ClapDetector {
-  private lastFrameRms = 0.001;
-  private firstClapAt = 0;
-  private lastActivationAt = -Infinity;
-
-  constructor(private readonly threshold: number, private readonly twoClaps: boolean, private readonly cooldownMs = 2000) {}
-
-  accept(frame: AudioFrame, now: number): boolean {
-    // shortcut: Wideband transients can include keyboard impacts; use a trained classifier if room testing shows false triggers.
-    const transient = frame.rms >= this.threshold
-      && frame.rms >= this.lastFrameRms * 2.8
-      && frame.peak >= frame.rms * 1.6
-      && frame.zeroCrossingRate >= 0.18;
-    this.lastFrameRms = Math.max(frame.rms, 0.001);
-    if (!transient || now - this.lastActivationAt < this.cooldownMs) return false;
-    if (this.twoClaps) {
-      if (now - this.firstClapAt < 250 || now - this.firstClapAt > 900) {
-        this.firstClapAt = now;
-        return false;
-      }
-      this.firstClapAt = 0;
-    }
-    this.lastActivationAt = now;
-    return true;
-  }
-}
-
 export function commandCaptureDecision(
   now: number,
   startedAt: number,

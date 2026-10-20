@@ -72,7 +72,7 @@ class OllamaClient:
         except (httpx.HTTPError, ValueError, AttributeError, TypeError) as exc:
             raise OllamaUnavailableError("Ollama runtime details are unavailable.") from exc
 
-    async def chat(self, messages: list[dict[str, str]]) -> tuple[str, dict[str, Any]]:
+    async def chat(self, messages: list[dict[str, str]], *, num_predict: int | None = None) -> tuple[str, dict[str, Any]]:
         """Generate a reply without pulling a missing model automatically."""
         try:
             response = await self._get_client().post(
@@ -84,7 +84,7 @@ class OllamaClient:
                         "options": {
                             "temperature": self.settings.ollama_temperature,
                             "num_ctx": self.settings.ollama_num_ctx,
-                            "num_predict": self.settings.ollama_num_predict,
+                            "num_predict": num_predict if num_predict is not None else self.settings.ollama_num_predict,
                         },
                         "keep_alive": "15m",
                     },

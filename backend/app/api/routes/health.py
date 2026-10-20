@@ -43,8 +43,11 @@ async def diagnostics(request: Request) -> dict[str, object]:
     return {
         "stt": {
             "configured_device": stt.settings.stt_device,
+            "active_device": stt.active_device,
             "compute_type": stt.settings.stt_compute_type,
+            "active_compute_type": stt.active_compute_type,
             "last_successful_device": stt.last_successful_device,
+            "fallback_reason": stt.fallback_reason,
         },
         "cuda": {
             "device_count": cuda_devices,
