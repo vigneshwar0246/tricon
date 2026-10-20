@@ -4,14 +4,8 @@ import { useNavigate } from "react-router-dom";
 /**
  * IntroPage — cinematic landing screen for the AI Voice Assistant.
  *
- * Layout (top → bottom):
- *   1. Header bar  – "AI VOICE ASSISTANT" overline + headline
- *   2. Video stage – the glass-sphere animation (never cropped/obstructed)
- *   3. Sub-copy    – tagline
- *   4. Footer bar  – "ENTER ASSISTANT →" button
- *
- * Text and the button are always in dedicated sections outside the video,
- * so the sphere and waveforms are never covered.
+ * The existing animation fills the viewport; the enter action sits over its
+ * centered artwork while the header and supporting copy remain over the video.
  */
 export function IntroPage() {
   const navigate = useNavigate();
@@ -73,7 +67,7 @@ export function IntroPage() {
         <h1 className="intro-headline">Meet Your AI Voice Assistant.</h1>
       </header>
 
-      {/* ── 2. Video stage ── */}
+      {/* ── Full-screen video stage ── */}
       <section className="intro-video-stage" aria-label="Intro animation">
         {!videoFailed ? (
           <video
@@ -93,24 +87,21 @@ export function IntroPage() {
           /* Fallback: orange gradient placeholder so layout stays intact */
           <div className="intro-video-fallback" aria-hidden="true" />
         )}
-      </section>
 
-      {/* ── 3. Sub-copy ── */}
-      <p className="intro-tagline">
-        A more natural way to interact with AI.
-      </p>
-
-      {/* ── 4. Footer / CTA ── */}
-      <footer className="intro-footer" aria-label="Intro actions">
         <button
           className="intro-enter-btn"
           onClick={handleEnter}
           aria-label="Enter the AI Voice Assistant"
           type="button"
         >
-          ENTER ASSISTANT&nbsp;→
+          Enter Assistant
         </button>
-      </footer>
+      </section>
+
+      {/* ── Supporting copy ── */}
+      <p className="intro-tagline">
+        A more natural way to interact with AI.
+      </p>
     </div>
   );
 }

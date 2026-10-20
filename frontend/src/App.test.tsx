@@ -126,13 +126,23 @@ describe("AI Voice Assistant", () => {
     expect(screen.getByText("AI VOICE ASSISTANT")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Meet Your AI Voice Assistant." })).toBeInTheDocument();
     expect(screen.getByText("A more natural way to interact with AI.")).toBeInTheDocument();
-    
+
+    const videoStage = screen.getByRole("region", { name: "Intro animation" });
+    const video = videoStage.querySelector("video");
+    expect(video).toHaveAttribute("src", "/videos/intro-sphere.mp4");
+    expect(video).toHaveAttribute("autoplay");
+    expect(video).toHaveProperty("muted", true);
+    expect(video).toHaveAttribute("loop");
+    expect(video).toHaveAttribute("playsinline");
+
     const enterBtn = screen.getByRole("button", { name: /enter the ai voice assistant/i });
     expect(enterBtn).toBeInTheDocument();
+    expect(videoStage).toContainElement(enterBtn);
     await user.click(enterBtn);
 
     // After enter click and fade transition
     expect(sessionStorage.getItem("intro_seen")).toBe("1");
+    expect(await screen.findByText("Tap to speak")).toBeInTheDocument();
   });
 });
 

@@ -184,18 +184,17 @@ main { min-width: 0; }
 
 /* ═══════════════════════════════════════════
    INTRO SCREEN
-   Layout: header / video-stage / tagline / footer
-   Text & button stay outside the video so the
-   glass sphere and waveforms are never obstructed.
+   Full-screen video with header, supporting copy and an overlaid enter action.
 ═══════════════════════════════════════════ */
 
 .intro-shell {
+  position: relative;
+  isolation: isolate;
   display: grid;
-  grid-template-rows: auto 1fr auto auto;
+  grid-template-rows: auto 1fr auto;
   min-height: 100dvh;
   width: 100%;
-  background: radial-gradient(circle at 50% -5%, rgba(255,122,26,.12), transparent 35%),
-              var(--paper);
+  background: #17120f;
   overflow: hidden;
   opacity: 1;
   transition: opacity .6s ease, transform .6s ease;
@@ -209,6 +208,8 @@ main { min-width: 0; }
 
 /* ── Header ── */
 .intro-header {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -236,95 +237,81 @@ main { min-width: 0; }
 
 /* ── Video stage ── */
 .intro-video-stage {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  min-height: 0;           /* let grid row shrink on short screens */
-  padding: 0 clamp(1rem, 4vw, 4rem);
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  overflow: hidden;
+  background: #17120f;
 }
 
 .intro-video {
   display: block;
+  position: absolute;
+  z-index: 0;
+  inset: 0;
   width: 100%;
-  max-width: min(620px, 90vw);
-  max-height: calc(100dvh - 22rem); /* keep header + tagline + footer visible */
-  object-fit: contain;              /* never stretch or crop */
-  border-radius: 1rem;
-  /* preserve alpha channel for transparent backgrounds */
+  height: 100%;
+  object-fit: cover;
+  object-position: right center;
   mix-blend-mode: normal;
 }
 
-/* Fallback when video fails to load */
 .intro-video-fallback {
-  width: min(420px, 80vw);
-  aspect-ratio: 1;
-  border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%,
-    rgba(255,180,100,.35),
-    rgba(255,101,0,.55) 55%,
-    rgba(220,80,0,.4));
-  box-shadow: 0 0 80px rgba(255,101,0,.25), 0 0 160px rgba(255,101,0,.08);
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, rgba(255,122,26,.3), #17120f 72%);
 }
 
 /* ── Sub-copy tagline ── */
 .intro-tagline {
+  position: relative;
+  z-index: 1;
+  align-self: end;
   margin: 0;
   padding: clamp(.75rem, 2vh, 1.25rem) 1.5rem clamp(.5rem, 1.5vh, 1rem);
-  color: var(--muted);
+  color: rgba(23,33,43,.78);
   font-size: clamp(.78rem, 1.6vw, .95rem);
   line-height: 1.6;
   text-align: center;
 }
 
-/* ── Footer / CTA ── */
-.intro-footer {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: clamp(.75rem, 2.5vh, 1.75rem) 1.5rem clamp(1.5rem, 4vh, 3rem);
-}
-
-/* Premium pill button */
+/* ── Centered video overlay action ── */
 .intro-enter-btn {
+  position: absolute;
+  z-index: 2;
+  top: 83.4722%;
+  left: calc(100% - 15.5556vh);
+  translate: -50% -50%;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: .5rem;
-  padding: .85rem 2.4rem;
+  width: min(11rem, calc(100vw - 1rem));
+  min-height: 3.5rem;
+  padding: .8rem 1rem;
   color: white;
-  background: linear-gradient(135deg, var(--orange-secondary, #ff7a1a), var(--orange, #ff6500));
-  border: 0;
+  background: rgba(255,101,0,.96);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,.24);
   border-radius: 999px;
-  font-size: clamp(.78rem, 1.5vw, .92rem);
-  font-weight: 750;
-  letter-spacing: .1em;
-  text-transform: uppercase;
+  font-size: .92rem;
+  font-weight: 700;
+  letter-spacing: .01em;
   cursor: pointer;
-  box-shadow:
-    0 0 0 0 rgba(255,101,0,.0),
-    0 8px 24px rgba(255,101,0,.28),
-    0 2px 6px rgba(255,101,0,.18);
-  transition:
-    transform .22s cubic-bezier(.22,1,.36,1),
-    box-shadow .22s cubic-bezier(.22,1,.36,1),
-    background .22s ease;
-  /* Ensure it's always visible */
-  position: relative;
-  z-index: 1;
+  box-shadow: 0 12px 38px rgba(255,101,0,.4), 0 0 0 8px rgba(255,101,0,.1);
+  transition: scale .22s cubic-bezier(.22,1,.36,1), box-shadow .22s ease, background .22s ease;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .intro-enter-btn:hover {
-  transform: translateY(-3px) scale(1.025);
-  box-shadow:
-    0 0 0 6px rgba(255,101,0,.1),
-    0 14px 36px rgba(255,101,0,.35),
-    0 4px 10px rgba(255,101,0,.22);
-  background: linear-gradient(135deg, #ff8c33, #ff6500);
+  scale: 1.035;
+  box-shadow: 0 16px 44px rgba(255,101,0,.5), 0 0 0 10px rgba(255,101,0,.13);
+  background: rgba(255,122,26,.98);
 }
 
 .intro-enter-btn:active {
-  transform: translateY(-1px) scale(1.01);
+  scale: .985;
   transition-duration: .08s;
 }
 
@@ -333,11 +320,18 @@ main { min-width: 0; }
   outline-offset: 4px;
 }
 
+@media (min-aspect-ratio: 16 / 9) {
+  .intro-video {
+    object-position: center;
+  }
+  .intro-enter-btn {
+    top: calc(50% + 18.827vw);
+    left: 91.25%;
+  }
+}
+
 /* ── Short screens: clamp video height so button stays visible ── */
 @media (max-height: 600px) {
-  .intro-video {
-    max-height: calc(100dvh - 16rem);
-  }
   .intro-header {
     padding-block: .75rem .5rem;
   }
@@ -348,14 +342,8 @@ main { min-width: 0; }
 
 /* ── Narrow screens ── */
 @media (max-width: 480px) {
-  .intro-video {
-    max-width: 95vw;
-    border-radius: .5rem;
-  }
   .intro-enter-btn {
-    width: 100%;
-    max-width: 22rem;
-    padding: .9rem 1.5rem;
+    min-height: 3.5rem;
   }
 }
 
@@ -365,7 +353,7 @@ main { min-width: 0; }
   .intro-shell.intro-exit,
   .intro-enter-btn {
     transition: none !important;
-    transform: none !important;
+    scale: 1 !important;
     animation: none !important;
   }
 }
