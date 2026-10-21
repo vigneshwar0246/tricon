@@ -10,6 +10,11 @@ from app.core.config import Settings, get_settings
 
 logger = logging.getLogger(__name__)
 
+LANGUAGE_PROMPTS = {
+    "hi": "यह हिंदी भाषा में देवनागरी लिपि का स्पष्ट वाक्य है।",
+    "ta": "இது தமிழ் எழுத்தில் பேசப்பட்ட தெளிவான தமிழ் வாக்கியம்.",
+}
+
 
 class SpeechModelNotInstalledError(RuntimeError):
     pass
@@ -23,6 +28,7 @@ class SpeechToTextService:
     def __init__(self, settings: Settings | None = None) -> None:
         self.settings = settings or get_settings()
         self._model: Any = None
+        self._language_models: dict[str, Any] = {}
         self._model_lock = threading.Lock()
         self._inference_lock = threading.Lock()
         self.active_device = self.settings.stt_device
@@ -60,6 +66,31 @@ class SpeechToTextService:
                     self._model = self._load_model(self.settings.stt_device, self.settings.stt_compute_type)
         return self._model
 
+    def _get_model_for_language(self, language: str | None) -> Any:
+        path = self.settings.stt_multilingual_model_path
+        if language not in {"hi", "ta"} or path is None:
+            return self._get_model()
+        if language in self._language_models:
+            return self._language_models[language]
+        with self._model_lock:
+            if language not in self._language_models:
+                required = (path / "model.bin", path / "config.json")
+                if not all(item.is_file() for item in required):
+                    raise SpeechModelNotInstalledError(
+                        f"The configured multilingual Faster-Whisper model is incomplete at '{path}'."
+                    )
+                try:
+                    from faster_whisper import WhisperModel
+                    self._language_models[language] = WhisperModel(
+                        str(path), device=self.active_device, compute_type=self.active_compute_type
+                    )
+                except Exception as exc:
+                    if self.active_device != "cuda":
+                        raise
+                    self._fallback_to_cpu(exc)
+                    self._language_models[language] = WhisperModel(str(path), device="cpu", compute_type="int8")
+        return self._language_models[language]
+
     def _load_model(self, device: str, compute_type: str) -> Any:
         try:
             from faster_whisper import WhisperModel
@@ -88,11 +119,14 @@ class SpeechToTextService:
         ))
 
     def _transcribe_with_model(self, model: Any, audio_path: str | Path, language: str | None) -> tuple[str, Any]:
+        selected_language = language or self.settings.stt_language
         segments, info = model.transcribe(
             str(audio_path),
-            language=language or self.settings.stt_language,
+            language=selected_language,
             beam_size=self.settings.stt_beam_size,
             vad_filter=True,
+            initial_prompt=LANGUAGE_PROMPTS.get(selected_language),
+            condition_on_previous_text=False,
         )
         duration = getattr(info, "duration", None)
         if duration is not None and duration > self.settings.audio_max_duration_seconds:
@@ -108,7 +142,7 @@ class SpeechToTextService:
     def transcribe(self, audio_path: str | Path, language: str | None = None) -> tuple[str, dict[str, Any]]:
         try:
             with self._inference_lock:
-                model = self._get_model()
+                model = self._get_model_for_language(language or self.settings.stt_language)
                 try:
                     text, info = self._transcribe_with_model(model, audio_path, language)
                 except Exception as exc:

@@ -38,7 +38,10 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
   const [phase, setPhase] = useState<AssistantPhase>("idle");
   const [error, setError] = useState<string | null>(null);
   const [metrics, setMetrics] = useState<Metrics>({});
-  const [language, setLanguageState] = useState(() => localStorage.getItem("trikon-language") ?? "");
+  const [language, setLanguageState] = useState(() => {
+    const saved = localStorage.getItem("trikon-language");
+    return saved === "hi" || saved === "ta" ? saved : "en";
+  });
   const [health, setHealth] = useState<SystemHealth>(defaultHealth);
   const [healthLoading, setHealthLoading] = useState(false);
   const sessionId = useRef<string>(newId());
@@ -123,6 +126,7 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
           };
           if (action === "clear_conversation") setMessages([]);
           addMessage("assistant", event.response || assistantText);
+          if (event.speech_available === false) setError(event.speech_detail || "Local speech output is unavailable for this language; the text reply is shown.");
           setMetrics({ ...resultMetrics, captureMs, vadEndMs });
         }
       });

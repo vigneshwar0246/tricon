@@ -72,7 +72,6 @@ export async function sendVoice(blob: Blob, sessionId: string, language?: string
   const audioUrl = resolveAudioUrl(audio);
   if (typeof transcript !== "string" || !transcript.trim()) throw new Error("The API response did not contain a transcription.");
   if (typeof content !== "string" || !content.trim()) throw new Error("The API response did not contain assistant text.");
-  if (!audioUrl) throw new Error("The API response did not contain playable assistant audio.");
   return {
     transcript,
     content,
@@ -80,6 +79,7 @@ export async function sendVoice(blob: Blob, sessionId: string, language?: string
     action: typeof data.action === "string" ? data.action : undefined,
     language: typeof data.language === "string" ? data.language : undefined,
     languageConfidence: typeof data.language_confidence === "number" ? data.language_confidence : undefined,
+    speechAvailable: data.speech_available !== false,
     sessionId: String(data.session_id ?? sessionId),
     metrics: parseMetrics(data, performance.now() - started),
   };
@@ -96,6 +96,8 @@ export interface VoiceStreamEvent {
   action?: string;
   language?: string;
   language_confidence?: number;
+  speech_available?: boolean;
+  speech_detail?: string;
   metrics?: UnknownRecord;
 }
 

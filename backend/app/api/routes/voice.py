@@ -91,12 +91,13 @@ async def voice(
         session_id=result.session_id,
         transcript=result.transcript,
         response=result.response,
-        audio_url=f"/api/audio/{result.audio_path.name}",
+        audio_url=f"/api/audio/{result.audio_path.name}" if result.audio_path else None,
         action=result.action,
         metrics=MetricsResponse(**result.metrics),
         created_at=result.created_at,
         language=result.language,
         language_confidence=result.language_confidence,
+        speech_available=result.speech_available,
     )
 
 

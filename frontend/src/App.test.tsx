@@ -5,7 +5,7 @@ import App from "./App";
 import userEvent from "@testing-library/user-event";
 
 describe("AI Voice Assistant", () => {
-  beforeEach(() => { vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline"))); });
+  beforeEach(() => { localStorage.clear(); vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline"))); });
   it("renders the dashboard without claiming services are online", async () => {
     render(<MemoryRouter><App /></MemoryRouter>);
     expect(screen.getByRole("heading", { name: "Hello!" })).toBeInTheDocument();
@@ -28,6 +28,20 @@ describe("AI Voice Assistant", () => {
     const language = screen.getByRole("combobox", { name: "Transcription language" });
     await user.selectOptions(language, "ta");
     expect(language).toHaveValue("ta");
+  });
+
+  it("provides dedicated English, Hindi, and Tamil buttons and persists the choice", async () => {
+    const user = userEvent.setup();
+    render(<MemoryRouter><App /></MemoryRouter>);
+    const english = screen.getByRole("button", { name: "Use English" });
+    const hindi = screen.getByRole("button", { name: "Use Hindi" });
+    const tamil = screen.getByRole("button", { name: "Use Tamil" });
+    expect(english).toHaveAttribute("aria-pressed", "true");
+    expect(hindi).toHaveAttribute("aria-pressed", "false");
+    expect(tamil).toHaveAttribute("aria-pressed", "false");
+    await user.click(hindi);
+    expect(hindi).toHaveAttribute("aria-pressed", "true");
+    expect(localStorage.getItem("trikon-language")).toBe("hi");
   });
 
   it("sends text to the backend and displays its actual response", async () => {

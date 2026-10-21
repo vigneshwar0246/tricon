@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     ollama_base_url: str = "http://127.0.0.1:11434"
     ollama_model: str = "qwen2.5:3b"
     ollama_timeout_seconds: float = Field(default=120.0, gt=0, le=600)
-    ollama_temperature: float = Field(default=0.7, ge=0, le=2)
+    ollama_temperature: float = Field(default=0.2, ge=0, le=2)
     ollama_num_ctx: int = Field(default=4096, ge=512, le=32768)
     ollama_num_predict: int = Field(default=160, ge=16, le=1024)
     voice_num_predict: int = Field(default=80, ge=16, le=256)
@@ -34,6 +34,7 @@ class Settings(BaseSettings):
     session_max_count: int = Field(default=500, ge=1, le=10000)
 
     stt_model_path: Path = BACKEND_DIR / "models" / "faster-whisper-base"
+    stt_multilingual_model_path: Path | None = None
     stt_device: str = "cpu"
     stt_compute_type: str = "int8"
     stt_language: str | None = None
@@ -57,7 +58,7 @@ class Settings(BaseSettings):
     ]
 
     @field_validator(
-        "stt_model_path", "tts_model_path", "audio_output_dir", "tts_config_path",
+        "stt_model_path", "stt_multilingual_model_path", "tts_model_path", "audio_output_dir", "tts_config_path",
         "tts_hi_model_path", "tts_hi_config_path", "tts_ta_model_path", "tts_ta_config_path",
         mode="before",
     )

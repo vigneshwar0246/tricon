@@ -7,6 +7,7 @@ from app.core.config import Settings
 from app.services.pipeline import VoicePipeline
 from app.services.session_manager import SessionManager
 from app.services.stt import TranscriptionError
+from app.services.stt import SpeechToTextService
 from app.services.tts import TextToSpeechService, VoiceModelNotInstalledError
 
 
@@ -29,6 +30,23 @@ def test_sentence_chunking_preserves_safe_boundaries() -> None:
     assert remainder == "This remains"
     assert VoicePipeline._take_speakable_chunk("an unfinished short phrase") == (None, "an unfinished short phrase")
     assert VoicePipeline._take_speakable_chunk("अंतिम वाक्य। अगला भाग")[0] == "अंतिम वाक्य।"
+
+
+def test_manual_hindi_biases_whisper_toward_devanagari(tmp_path: Path) -> None:
+    model = Mock()
+    model.transcribe.return_value = (
+        [Mock(text=" नमस्ते ")],
+        Mock(language="hi", language_probability=0.99, duration=1.0),
+    )
+    service = SpeechToTextService(Settings())
+    service.settings.stt_multilingual_model_path = None
+    service._model = model
+
+    text, _ = service.transcribe(tmp_path / "hindi.wav", "hi")
+
+    assert text == "नमस्ते"
+    assert "देवनागरी" in model.transcribe.call_args.kwargs["initial_prompt"]
+    assert model.transcribe.call_args.kwargs["condition_on_previous_text"] is False
 
 
 @pytest.mark.asyncio

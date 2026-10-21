@@ -12,7 +12,7 @@ from app.services.llm import OllamaClient, OllamaResponseError, OllamaUnavailabl
 from app.services.commands import Command, route_command
 from app.services.session_manager import SessionManager, session_manager
 from app.services.stt import SpeechToTextService, TranscriptionError, stt_service
-from app.services.tts import TextToSpeechService, VoiceModelNotInstalledError, tts_service
+from app.services.tts import TextToSpeechService, tts_service
 
 VOICE_SYSTEM_PROMPT = (
     "You are a friendly voice assistant speaking to one person. Answer directly in one or two short, natural sentences, "
@@ -22,6 +22,11 @@ VOICE_SYSTEM_PROMPT = (
 )
 
 LANGUAGE_NAMES = {"en": "English", "hi": "Hindi", "ta": "Tamil"}
+LANGUAGE_SCRIPT_RULES = {
+    "en": "Use English in the Latin script.",
+    "hi": "Use Hindi in Devanagari script only. Never answer in Urdu or Perso-Arabic script.",
+    "ta": "Use Tamil in Tamil script only.",
+}
 
 
 @dataclass
@@ -29,12 +34,13 @@ class PipelineResult:
     session_id: str
     transcript: str
     response: str
-    audio_path: Path
+    audio_path: Path | None
     metrics: dict[str, float | None]
     created_at: datetime
     action: str | None = None
     language: str | None = None
     language_confidence: float | None = None
+    speech_available: bool = True
 
 
 @dataclass
@@ -69,7 +75,9 @@ class VoicePipeline:
             if session.language:
                 messages.insert(0, {
                     "role": "system",
-                    "content": f"Reply naturally and concisely in {LANGUAGE_NAMES[session.language]} unless the user explicitly requests another language.",
+                    "content": f"You are an accurate local assistant. Answer the question directly and concisely. "
+                    f"If you are unsure, say you do not know instead of inventing a fact. Reply in {LANGUAGE_NAMES[session.language]}. "
+                    f"{LANGUAGE_SCRIPT_RULES[session.language]} Do not switch languages.",
                 })
             messages.append({"role": "user", "content": message})
             response_text, metadata = await self.llm.chat(messages)
@@ -104,11 +112,7 @@ class VoicePipeline:
                     f"Language detection was uncertain ({language_confidence:.0%}). Select English, Hindi, or Tamil and try again."
                 )
             session.language = response_language
-            if hasattr(self.tts, "available_for") and not self.tts.available_for(response_language):
-                raise VoiceModelNotInstalledError(
-                    f"Transcription supports {LANGUAGE_NAMES[response_language]}, but a compatible local "
-                    f"{LANGUAGE_NAMES[response_language]} speech voice is not installed. No English or cloud fallback was used."
-                )
+            speech_available = not hasattr(self.tts, "available_for") or self.tts.available_for(response_language)
             last_response = next((item.content for item in reversed(session.messages) if item.role == "assistant"), None)
             if transcript.lower().strip(" ?.!") in {"system status", "assistant status", "check status", "are you working"}:
                 try:
@@ -131,7 +135,7 @@ class VoicePipeline:
                     {
                         "role": "system",
                         "content": f"{VOICE_SYSTEM_PROMPT} Reply in {LANGUAGE_NAMES[response_language]}. "
-                        "Preserve that language unless the user explicitly asks to switch. If recognition seems ambiguous, ask one short clarification question.",
+                        f"{LANGUAGE_SCRIPT_RULES[response_language]} Do not switch languages. If recognition seems ambiguous, ask one short clarification question.",
                     },
                     *self.sessions.history(session),
                 ]
@@ -142,10 +146,13 @@ class VoicePipeline:
                 reported_llm_ms = round((metadata.get("total_duration", 0) or 0) / 1_000_000, 2)
                 llm_ms = reported_llm_ms if reported_llm_ms > 0 else measured_llm_ms
 
-            if response_language == "en":
-                audio_output, tts_ms = await asyncio.to_thread(self.tts.synthesize_to_file, response_text)
-            else:
-                audio_output, tts_ms = await asyncio.to_thread(self.tts.synthesize_to_file, response_text, response_language)
+            audio_output = None
+            tts_ms = None
+            if speech_available:
+                if response_language == "en":
+                    audio_output, tts_ms = await asyncio.to_thread(self.tts.synthesize_to_file, response_text)
+                else:
+                    audio_output, tts_ms = await asyncio.to_thread(self.tts.synthesize_to_file, response_text, response_language)
             if command and command.action == "clear_conversation":
                 session.messages.clear()
             else:
@@ -166,6 +173,7 @@ class VoicePipeline:
             action=command.action if command else None,
             language=response_language,
             language_confidence=language_confidence,
+            speech_available=speech_available,
         )
 
     @staticmethod
@@ -203,11 +211,7 @@ class VoicePipeline:
                     f"Language detection was uncertain ({confidence:.0%}). Select English, Hindi, or Tamil and try again."
                 )
             session.language = response_language
-            if not self.tts.available_for(response_language):
-                raise VoiceModelNotInstalledError(
-                    f"A compatible local {LANGUAGE_NAMES[response_language]} speech voice is not installed. "
-                    "No English or cloud fallback was used."
-                )
+            speech_available = self.tts.available_for(response_language)
             yield {
                 "type": "transcript", "session_id": session.session_id, "transcript": transcript,
                 "language": response_language, "language_confidence": confidence, "stt_ms": stt_ms,
@@ -217,18 +221,23 @@ class VoicePipeline:
             command = route_command(transcript, last_response)
             if command:
                 response_text = command.response
-                audio_path_out, tts_ms = await asyncio.to_thread(
-                    self.tts.synthesize_to_file, response_text, response_language
-                )
+                audio_path_out = None
+                tts_ms = None
+                if speech_available:
+                    audio_path_out, tts_ms = await asyncio.to_thread(
+                        self.tts.synthesize_to_file, response_text, response_language
+                    )
                 yield {"type": "text", "delta": response_text}
-                yield {"type": "audio", "url": f"/api/audio/{audio_path_out.name}", "text": response_text, "index": 0}
+                if audio_path_out:
+                    yield {"type": "audio", "url": f"/api/audio/{audio_path_out.name}", "text": response_text, "index": 0}
                 if command.action == "clear_conversation":
                     session.messages.clear()
                 else:
                     self.sessions.add_exchange(session, transcript, response_text)
                 yield {
                     "type": "done", "session_id": session.session_id, "response": response_text,
-                    "action": command.action, "language": response_language,
+                    "action": command.action, "language": response_language, "speech_available": speech_available,
+                    "speech_detail": None if speech_available else f"Local {LANGUAGE_NAMES[response_language]} speech output is not installed; the text reply is available.",
                     "metrics": {"stt_ms": stt_ms, "llm_ms": None, "tts_ms": tts_ms,
                                 "first_token_ms": None, "first_audio_ms": round((perf_counter() - overall_started) * 1000, 2),
                                 "total_ms": round((perf_counter() - overall_started) * 1000, 2)},
@@ -237,7 +246,7 @@ class VoicePipeline:
 
             messages: list[dict[str, Any]] = [{
                 "role": "system",
-                "content": f"{VOICE_SYSTEM_PROMPT} Reply in {LANGUAGE_NAMES[response_language]}. Preserve that language unless asked to switch.",
+                "content": f"{VOICE_SYSTEM_PROMPT} Reply in {LANGUAGE_NAMES[response_language]}. {LANGUAGE_SCRIPT_RULES[response_language]} Do not switch languages.",
             }, *self.sessions.history(session), {"role": "user", "content": transcript}]
             llm_started = perf_counter()
             first_token_ms: float | None = None
@@ -256,7 +265,7 @@ class VoicePipeline:
                     buffer += token
                     yield {"type": "text", "delta": token}
                     chunk, buffer = self._take_speakable_chunk(buffer)
-                    if chunk:
+                    if chunk and speech_available:
                         chunk_path, chunk_ms = await asyncio.to_thread(
                             self.tts.synthesize_to_file, chunk, response_language
                         )
@@ -270,7 +279,7 @@ class VoicePipeline:
                     if isinstance(duration_ns, (int, float)) and duration_ns > 0:
                         reported_llm_ms = round(duration_ns / 1_000_000, 2)
             final_chunk, _ = self._take_speakable_chunk(buffer, final=True)
-            if final_chunk:
+            if final_chunk and speech_available:
                 chunk_path, chunk_ms = await asyncio.to_thread(
                     self.tts.synthesize_to_file, final_chunk, response_language
                 )
@@ -285,8 +294,10 @@ class VoicePipeline:
             self.sessions.add_exchange(session, transcript, response_text)
             yield {
                 "type": "done", "session_id": session.session_id, "response": response_text,
-                "action": None, "language": response_language,
-                "metrics": {"stt_ms": stt_ms, "llm_ms": llm_ms, "tts_ms": round(tts_ms, 2),
+                "action": None, "language": response_language, "speech_available": speech_available,
+                "speech_detail": None if speech_available else f"Local {LANGUAGE_NAMES[response_language]} speech output is not installed; the text reply is available.",
+                "metrics": {"stt_ms": stt_ms, "llm_ms": llm_ms,
+                            "tts_ms": round(tts_ms, 2) if speech_available else None,
                             "first_token_ms": first_token_ms, "first_audio_ms": first_audio_ms,
                             "total_ms": round((perf_counter() - overall_started) * 1000, 2)},
             }

@@ -68,6 +68,17 @@ main { min-width: 0; }
 .hero h1 { margin: .8rem 0 .25rem; color: var(--ink); font-size: clamp(3rem, 5vw, 4.65rem); line-height: .96; letter-spacing: -.065em; }
 .hero-subtitle { margin: 0; color: var(--orange); font-size: clamp(1.05rem, 1.8vw, 1.3rem); font-weight: 700; letter-spacing: -.025em; }
 .hero-description { margin: .75rem auto 0; color: var(--muted); font-size: .8rem; line-height: 1.65; }
+.language-switcher { width: min(24rem, 100%); margin-top: 1.35rem; }
+.language-switcher-label { display: flex; align-items: center; justify-content: center; gap: .4rem; color: #76533e; font-size: .67rem; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; }
+.language-switcher-label svg { width: .9rem; height: .9rem; color: var(--orange); }
+.language-switcher-options { display: grid; grid-template-columns: repeat(3, 1fr); gap: .45rem; margin-top: .55rem; padding: .3rem; background: #fff8f3; border: 1px solid #f2dfd2; border-radius: .85rem; }
+.language-switcher-options button { display: grid; gap: .08rem; padding: .55rem .4rem; color: #76533e; background: transparent; border: 1px solid transparent; border-radius: .62rem; cursor: pointer; transition: .18s ease; }
+.language-switcher-options button span { font-size: .78rem; font-weight: 800; }
+.language-switcher-options button small { font-size: .55rem; opacity: .72; }
+.language-switcher-options button:hover:not(:disabled) { background: white; border-color: #f2d3c0; }
+.language-switcher-options button.active { color: white; background: var(--orange); box-shadow: 0 .3rem .8rem rgb(238 107 45 / 22%); }
+.language-switcher-options button:disabled { cursor: not-allowed; opacity: .55; }
+.language-switcher > p { margin: .45rem 0 0; color: var(--muted); font-size: .62rem; }
 .voice-control { position: relative; width: min(25rem, 100%); min-height: 13.5rem; display: grid; grid-template-columns: 4rem 7.5rem 4rem; align-items: center; justify-content: center; column-gap: 1.5rem; padding-bottom: 2.6rem; }
 .voice-button { position: relative; width: 7.5rem; height: 7.5rem; display: grid; place-items: center; color: white; background: radial-gradient(circle at 34% 26%, #ff9a56, var(--orange) 48%, #e95600 100%); border-radius: 50%; cursor: pointer; box-shadow: 0 0 0 10px rgba(255,101,0,.065), 0 0 0 24px rgba(255,101,0,.03), 0 24px 46px rgba(255,101,0,.25); }
 .voice-button::before { content: ""; position: absolute; inset: -2.9rem; z-index: -1; border-radius: 50%; background: radial-gradient(circle, rgba(255,101,0,.12), transparent 67%); }

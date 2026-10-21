@@ -8,14 +8,14 @@ Trikon Voice AI is a local-first voice assistant. The browser frontend records s
 
 - **Frontend:** React 19, TypeScript, Vite, Tailwind CSS, Framer Motion.
 - **Backend:** Python 3.11, FastAPI, Uvicorn.
-- **Speech-to-text (STT):** Faster-Whisper `base` through CTranslate2.
+- **Speech-to-text (STT):** Faster-Whisper `base` for English and `small` for Hindi/Tamil through CTranslate2.
 - **Language model (LLM):** `qwen2.5:3b` through the local Ollama HTTP API.
-- **Text-to-speech (TTS):** Piper `en_US-norman-medium`.
+- **Text-to-speech (TTS):** Piper `en_US-norman-medium` for English and `hi_IN-pratham-medium` for Hindi.
 - **Conversation storage:** bounded in-memory sessions; no database.
 
 The complete project is currently operational. Frontend, backend, Ollama, STT, and TTS were connected and tested together. CUDA acceleration is working for Ollama, but Faster-Whisper CUDA inference is **not** available because the CUDA 12 cuBLAS runtime DLL required by CTranslate2 is missing. Faster-Whisper therefore uses the verified CPU/int8 configuration.
 
-The October 2026 latency/multilingual upgrade adds persistent automatic/manual language control, honest per-language stage readiness, Ollama token streaming, sentence-safe chunked Piper output, configurable VAD behavior, generation-safe cancellation, and optional hands-free barge-in. English is the only installed end-to-end speech language. Hindi and Tamil STT/text paths exist, but their speech output is deliberately blocked until compatible local voices are installed and verified.
+The October 2026 latency/multilingual upgrade adds a dedicated three-button English/Hindi/Tamil selector, persistent manual language control, honest per-language stage readiness, Ollama token streaming, sentence-safe chunked Piper output, configurable VAD behavior, generation-safe cancellation, and optional hands-free barge-in. English and Hindi are installed end-to-end speech languages. Tamil input and Tamil-script text replies are enabled, but Tamil speech output is deliberately unavailable because no compatible Tamil Piper voice is installed. The interface remains English in every mode.
 
 ## 2. Current verified status
 
@@ -26,17 +26,17 @@ The October 2026 latency/multilingual upgrade adds persistent automatic/manual l
 | API documentation | Available | `http://127.0.0.1:8000/docs` |
 | Ollama | Ready | Local service at `http://127.0.0.1:11434` |
 | LLM | Ready | `qwen2.5:3b` |
-| STT model | Ready | `backend/models/faster-whisper-base` |
+| STT models | Ready | `faster-whisper-base` for English; `faster-whisper-small` for Hindi/Tamil |
 | STT execution | Verified | CPU with `int8` compute |
 | STT CUDA execution | Not verified / unavailable | Missing `cublas64_12.dll` |
-| TTS model | Ready | `en_US-norman-medium` on CPU |
+| TTS models | Ready | English Norman and Hindi Pratham on CPU |
 | Full voice request | Passed | WAV → Whisper → Qwen → Piper → WAV |
 | Incremental voice stream | Passed | NDJSON tokens → sentence-safe Piper chunks |
 | English language stages | Ready | STT, LLM and TTS |
-| Hindi language stages | Partial | STT and LLM ready; local TTS voice missing |
-| Tamil language stages | Partial | STT and LLM ready; local TTS voice missing |
-| Backend automated tests | Passed | 29 tests |
-| Frontend automated tests | Passed | 18 tests |
+| Hindi language stages | Ready | STT, LLM and verified Hindi Piper synthesis |
+| Tamil language stages | Partial | STT and Tamil-script LLM text ready; local TTS voice unavailable |
+| Backend automated tests | Passed | 30 tests |
+| Frontend automated tests | Passed | 19 tests |
 | Frontend production build | Passed | TypeScript and Vite build |
 | Carrot wake word | Not implemented | No trained/evaluated Carrot model |
 
@@ -408,11 +408,12 @@ Backend configuration is read from `backend/.env`. Relative paths resolve from `
 | `OLLAMA_BASE_URL` | Local Ollama endpoint | `http://127.0.0.1:11434` |
 | `OLLAMA_MODEL` | Chat model | `qwen2.5:3b` |
 | `OLLAMA_TIMEOUT_SECONDS` | Generation timeout | `120` |
-| `OLLAMA_TEMPERATURE` | Sampling temperature | `0.7` |
+| `OLLAMA_TEMPERATURE` | Sampling temperature | `0.2` |
 | `OLLAMA_NUM_CTX` | Context window requested from Ollama | `4096` |
 | `OLLAMA_NUM_PREDICT` | Text-chat output ceiling | backend default `160` |
 | `VOICE_NUM_PREDICT` | Voice output ceiling | `80` |
 | `STT_MODEL_PATH` | Local Whisper model directory | `models/faster-whisper-base` |
+| `STT_MULTILINGUAL_MODEL_PATH` | Higher-accuracy Hindi/Tamil model | `models/faster-whisper-small` |
 | `STT_DEVICE` | Whisper device | `cpu` |
 | `STT_COMPUTE_TYPE` | Whisper precision/quantization | `int8` |
 | `STT_BEAM_SIZE` | Whisper search beam size | `5` |
@@ -422,7 +423,7 @@ Backend configuration is read from `backend/.env`. Relative paths resolve from `
 | `AUDIO_MAX_DURATION_SECONDS` | Audio duration limit | `300` |
 | `TTS_MODEL_PATH` | Piper ONNX voice | `models/piper/en_US-norman-medium.onnx` |
 | `TTS_CONFIG_PATH` | Piper voice JSON | inferred as `<model>.json` |
-| `TTS_HI_MODEL_PATH` / `TTS_HI_CONFIG_PATH` | Hindi Piper voice files | not configured |
+| `TTS_HI_MODEL_PATH` / `TTS_HI_CONFIG_PATH` | Hindi Piper voice files | `hi_IN-pratham-medium` configured locally |
 | `TTS_TA_MODEL_PATH` / `TTS_TA_CONFIG_PATH` | Tamil Piper voice files | not configured |
 | `TTS_USE_CUDA` | Piper CUDA request | `false` |
 | `AUDIO_OUTPUT_DIR` | Generated response files | `generated_audio` |
@@ -537,7 +538,8 @@ Piper currently runs on CPU. `TTS_USE_CUDA=false` is intentional. The installed 
 The project already contains:
 
 - Faster-Whisper base model files: `config.json`, `model.bin`, tokenizer, and vocabulary.
-- Piper `en_US-norman-medium.onnx` and matching `.onnx.json`.
+- Faster-Whisper small model files for the higher-accuracy Hindi/Tamil path.
+- Piper `en_US-norman-medium.onnx` and `hi_IN-pratham-medium.onnx`, each with its matching `.onnx.json`.
 - Ollama's `qwen2.5:3b` in Ollama's separate local model store.
 
 The backend never downloads a model automatically. This prevents hidden network usage and unexpected startup delays.
@@ -571,7 +573,7 @@ $env:TMP=$env:TEMP
 python -m pytest -q -p no:cacheprovider
 ```
 
-Result: **29 passed**. The temp-directory permission error is an operating-system/test-runner environment issue, not a backend logic failure.
+Result: **30 passed**. The temp-directory permission error is an operating-system/test-runner environment issue, not a backend logic failure.
 
 ### Frontend
 
@@ -584,9 +586,9 @@ npm run build
 
 Latest verified results:
 
-- Tests: **18 passed across 4 test files**.
+- Tests: **19 passed across 4 test files**.
 - Production build: **passed**.
-- Vite transformed 2,107 modules and produced the `dist` bundle.
+- Vite transformed 2,108 modules and produced the `dist` bundle.
 
 The jsdom test warning that `HTMLMediaElement.play()` is not implemented is expected for a simulated browser and did not fail the suite.
 
@@ -735,16 +737,17 @@ The project is working completely in its currently implemented scope when:
 
 Those conditions have been verified. CUDA STT and the Carrot wake word are optional/unimplemented enhancements and are not part of the currently verified working path. The accurate current claim is:
 
-> **The local English voice assistant is operational using GPU-backed Ollama, CPU/int8 Faster-Whisper, and CPU Piper, including chunked output and optional barge-in logic. Hindi and Tamil end-to-end speech remain blocked by missing compatible local voices and lawful evaluation recordings. Faster-Whisper CUDA acceleration is not operational because CUDA 12 cuBLAS is missing, and the Carrot wake word is not implemented.**
+> **The local English and Hindi voice paths are operational using GPU-backed Ollama, CPU/int8 Faster-Whisper, and CPU Piper, including chunked output and optional barge-in logic. Tamil input and Tamil text output are implemented, while Tamil audio remains unavailable because a compatible local Tamil Piper voice is not installed. Faster-Whisper CUDA acceleration is not operational because CUDA 12 cuBLAS is missing, and the Carrot wake word is not implemented.**
 
 ## 19. Master-prompt upgrade report and acceptance matrix
 
 ### Implemented changes
 
-- Language selection supports auto, English, Hindi, and Tamil. Manual choice persists in `localStorage`, is sent for text and voice turns, and is retained in backend session language state.
-- Automatic mode uses the current Whisper result and confidence. Unsupported or low-confidence detection produces an actionable error instead of an invented language decision.
+- The Home screen has three dedicated buttons: **English**, **Hindi**, and **Tamil**. There is no fourth language and no automatic option in the main interface. The chosen language persists in `localStorage`, is sent for text and voice turns, and is retained in backend session language state.
+- Selecting a language cancels pending playback/work before the next turn. The browser interface remains English; only the user's transcript and assistant response follow the selected language.
+- The backend still supports automatic Whisper detection as an API capability for compatibility, with confidence checks and actionable errors, but the normal UI deliberately uses explicit selection.
 - Health now reports STT, LLM, and TTS readiness separately for every supported language.
-- TTS has independent English/Hindi/Tamil model mappings. Missing Hindi/Tamil voices never fall back to the English voice or cloud speech.
+- TTS has independent English/Hindi/Tamil model mappings. English and Hindi voices are installed; missing Tamil speech never falls back to the English voice or cloud speech.
 - Voice prompts tell Qwen to answer concisely in the active language. Real text checks produced the requested Hindi phrase and a Tamil-script response; this is qualitative, not a multilingual quality benchmark.
 - Ollama has a cancellable NDJSON token-stream client.
 - `/api/voice/stream` converts complete sentence/phrase buffers into ordered local Piper WAV chunks and flushes the final buffer.
@@ -754,7 +757,7 @@ Those conditions have been verified. CUDA STT and the Carrot wake word are optio
 - Latency output now distinguishes STT, first LLM token, total LLM, first server audio chunk, accumulated TTS, browser capture/VAD, browser playback start, and total server time where the selected path can measure them.
 - `backend/scripts/benchmark_voice.py` runs repeated real requests from a user-supplied multilingual manifest, reports success/failure, cold candidates, p50/p95/min/max stage timings, WER when exact references exist, health, diagnostics, model/device facts, and hardware.
 
-The installed Piper 1.8.0 catalog check listed `hi_IN-pratham-medium`, `hi_IN-priyamvada-medium`, and `hi_IN-rohan-medium`; it listed no `ta_*` voice. No model was downloaded. A deliberate Hindi setup is `python -m piper.download_voices hi_IN-pratham-medium --download-dir models\piper`, followed by configuring the matching `.onnx` and `.onnx.json` paths and performing a real synthesis/license review. Tamil requires evaluation of another genuinely local engine before integration and remains blocked.
+The Hindi `hi_IN-pratham-medium` model and configuration were downloaded to `backend/models/piper`, configured in the active local `.env`, and verified by producing a real Hindi WAV (about 138 KiB in 0.93 seconds in the direct synthesis check). Piper 1.8.0's catalog has no `ta_*` voice, so Tamil requires evaluation of another genuinely local, legally usable engine before speech output can be claimed.
 
 ### Latest real streaming observation
 
@@ -776,10 +779,10 @@ The answer contained one sentence, so no safe audio boundary existed before the 
 | Test | Status | Evidence / blocker |
 | --- | --- | --- |
 | English voice conversation | PASS | Real WAV completed STT → streamed local Qwen → English Piper WAV. |
-| Hindi voice conversation | BLOCKED | Hindi STT/LLM code paths exist, but no compatible Hindi Piper voice or lawful recorded test set is installed. |
+| Hindi voice conversation | PASS (qualitative) | A real Hindi stream completed STT → Qwen → Piper. The transcript was meaningful but had minor spelling errors; no lawful WER corpus was available. |
 | Tamil voice conversation | BLOCKED | Tamil STT/LLM code paths exist, but no compatible Tamil Piper voice or lawful recorded test set is installed. |
-| English → Hindi | BLOCKED | Real text switching works qualitatively; end-to-end voice cannot pass without Hindi TTS. |
-| Hindi → Tamil | BLOCKED | Session switching is implemented; both required TTS voices are missing. |
+| English → Hindi | PASS (qualitative) | Selector persistence, pipeline routing and real Hindi synthesis passed. |
+| Hindi → Tamil | PARTIAL | Session switching and Tamil text are implemented; Tamil audio is unavailable. |
 | Tamil → English | BLOCKED | Session switching is implemented; starting Tamil speech output is unavailable. |
 | Multi-turn context | PASS | Existing session tests and real same-session text requests preserve ordered context/language. |
 | Hands-free listening | NOT TESTED | Automated state tests pass; real microphone/room endpointing was not physically exercised in this run. |
@@ -789,7 +792,7 @@ The answer contained one sentence, so no safe audio boundary existed before the 
 | Local inference | PASS | All observed inference used local Faster-Whisper, Ollama, and Piper. |
 | Performance p50/p95 | PASS | Ten real English runs produced per-sample p50/p95; Hindi/Tamil benchmarking remains blocked by recordings/voices. |
 | CPU fallback | PASS | Real STT succeeded on CPU/int8; CUDA-specific fallback behavior is covered by tests. |
-| Missing voice/model | PASS | Health marks Hindi/Tamil TTS false and requests fail clearly without English/cloud fallback. |
+| Missing voice/model | PASS | Health marks Tamil TTS false and the frontend returns text plus a clear speech-unavailable notice without English/cloud fallback. |
 
 ### Repeatable multilingual benchmark
 

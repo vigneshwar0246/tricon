@@ -17,3 +17,4 @@ class VoiceResponse(BaseModel):
     created_at: datetime
     language: str | None = None
     language_confidence: float | None = None
+    speech_available: bool = True
