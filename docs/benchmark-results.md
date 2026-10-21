@@ -1,5 +1,16 @@
 # Benchmark results
 
+## Repeatable English benchmark — 2026-10-21
+
+`backend/scripts/benchmark_voice.py` completed ten real local `/api/voice` requests with no failures: five runs of a 3.843-second short English WAV and five of a 15.569-second long English WAV. Configuration was Faster-Whisper base on CPU/int8, Ollama `qwen2.5:3b` on the RTX 3050, and Piper Norman on CPU.
+
+| Sample | First/cold-candidate wall | Warm wall p50 | Warm wall p95 | STT p50 | LLM p50 | TTS p50 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Short, 3.843 s | 4,356.57 ms | 4,086.86 ms | 4,813.11 ms | 2,383.66 ms | 790.05 ms | 976.91 ms |
+| Long, 15.569 s | 7,076.62 ms | 6,902.12 ms | 7,541.01 ms | 3,202.08 ms | 1,253.89 ms | 2,497.37 ms |
+
+The long generated sample had a known reference and repeatable WER of `0.1739`; the short sample had no reliable reference, so WER is omitted. These clean synthesized recordings do not establish microphone, noise, Hindi, or Tamil accuracy. The complete observations, hardware, health, device state, transcripts, failures, and percentile calculations are in [benchmark-2026-10-21.json](benchmark-2026-10-21.json). “Cold candidate” is only the first sample run in the current process, not proof that all system caches were empty.
+
 Text inference was exercised through the FastAPI chat route on 2026-10-19. Later the same day, the complete local speech pipeline was exercised with a Piper-generated WAV uploaded through `/api/voice`. These are single-run observations, not a repeatable performance benchmark.
 
 | Stage | Result | Configuration / method |

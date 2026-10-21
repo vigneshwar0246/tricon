@@ -1,10 +1,12 @@
 """Audio upload and voice-to-voice pipeline route."""
 
 import logging
+import json
 import tempfile
 from pathlib import Path
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile, status
+from fastapi.responses import StreamingResponse
 
 from app.core.config import get_settings
 from app.schemas.chat import MetricsResponse
@@ -93,4 +95,33 @@ async def voice(
         action=result.action,
         metrics=MetricsResponse(**result.metrics),
         created_at=result.created_at,
+        language=result.language,
+        language_confidence=result.language_confidence,
     )
+
+
+@router.post("/stream")
+async def voice_stream(
+    request: Request,
+    audio: UploadFile = File(...),
+    session_id: str | None = Form(default=None, max_length=128),
+    language: str | None = Form(default=None, pattern="^(en|hi|ta)$"),
+) -> StreamingResponse:
+    """NDJSON stream: transcript, text deltas, ordered chunked-Piper audio, then metrics."""
+    settings = get_settings()
+    temp_path = await _save_upload(audio, settings.audio_max_size_mb * 1024 * 1024)
+
+    async def events():
+        try:
+            async for event in request.app.state.pipeline.voice_stream(temp_path, session_id, language):
+                yield json.dumps(event, ensure_ascii=False) + "\n"
+        except (SpeechModelNotInstalledError, VoiceModelNotInstalledError, OllamaUnavailableError,
+                OllamaModelMissingError, TranscriptionError, OllamaResponseError, SpeechSynthesisError) as exc:
+            yield json.dumps({"type": "error", "detail": str(exc)}, ensure_ascii=False) + "\n"
+        except Exception:
+            logger.exception("Unexpected streaming voice pipeline failure")
+            yield json.dumps({"type": "error", "detail": "The local streaming voice pipeline failed."}) + "\n"
+        finally:
+            temp_path.unlink(missing_ok=True)
+
+    return StreamingResponse(events(), media_type="application/x-ndjson", headers={"Cache-Control": "no-store"})

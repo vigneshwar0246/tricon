@@ -91,7 +91,7 @@ class SpeechToTextService:
         segments, info = model.transcribe(
             str(audio_path),
             language=language or self.settings.stt_language,
-            beam_size=5,
+            beam_size=self.settings.stt_beam_size,
             vad_filter=True,
         )
         duration = getattr(info, "duration", None)

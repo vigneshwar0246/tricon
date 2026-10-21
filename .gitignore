@@ -48,6 +48,9 @@ pip-wheel-metadata/
 
 # Python test, lint and type-check caches
 .pytest_cache/
+.test-tmp/
+benchmark_samples/
+benchmark-manifest.local.json
 .coverage
 .coverage.*
 htmlcov/

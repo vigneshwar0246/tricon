@@ -9,6 +9,11 @@ interface HandsFreeOptions {
   onCommand: (audio: Blob, commandEndedAt: number, captureMs: number, vadEndMs: number) => Promise<void>;
   onError: (error: Error) => void;
   onStatusChange: (status: HandsFreeState) => void;
+  monitorInterruption?: boolean;
+  onInterruption?: () => void;
+  speechThreshold?: number;
+  minimumSpeechMs?: number;
+  maxDurationMs?: number;
 }
 
 export function useHandsFree(options: HandsFreeOptions) {
@@ -31,6 +36,8 @@ export function useHandsFree(options: HandsFreeOptions) {
   const captureStoppedAtRef = useRef(0);
   const generationRef = useRef(0);
   const startCaptureRef = useRef<() => void>(() => {});
+  const speechStartedAtRef = useRef<number | null>(null);
+  const interruptionFramesRef = useRef(0);
 
   useEffect(() => { optionsRef.current = options; }, [options]);
 
@@ -105,6 +112,7 @@ export function useHandsFree(options: HandsFreeOptions) {
       startedAtRef.current = performance.now();
       lastSpeechRef.current = null;
       speechFramesRef.current = 0;
+      speechStartedAtRef.current = null;
       discardRef.current = false;
       changeStatus("capturing");
     } catch (error) {
@@ -115,20 +123,40 @@ export function useHandsFree(options: HandsFreeOptions) {
 
   const tick = useCallback(() => {
     const analyser = analyserRef.current;
-    if (!analyser || optionsRef.current.suspended) return;
+    if (!analyser) return;
     const samples: Float32Array<ArrayBuffer> = samplesRef.current ??= new Float32Array(analyser.fftSize);
     analyser.getFloatTimeDomainData(samples);
     const frame = analyzeAudioFrame(samples);
     const now = performance.now();
-    if (statusRef.current === "capturing") {
-      const speech = frame.rms > Math.max(0.015, noiseFloorRef.current * 2.7);
-      speechFramesRef.current = speech ? speechFramesRef.current + 1 : 0;
-      if (speechFramesRef.current >= 2) lastSpeechRef.current = now;
-      if (!speech) noiseFloorRef.current = Math.min(0.03, noiseFloorRef.current * 0.98 + frame.rms * 0.02);
-      const decision = commandCaptureDecision(now, startedAtRef.current, lastSpeechRef.current, optionsRef.current.silenceMs);
-      if (decision !== "continue") finishCapture(decision === "discard");
+    const threshold = Math.max(optionsRef.current.speechThreshold ?? 0.015, noiseFloorRef.current * 2.7);
+    if (statusRef.current === "processing" && optionsRef.current.monitorInterruption) {
+      interruptionFramesRef.current = frame.rms > threshold ? interruptionFramesRef.current + 1 : 0;
+      if (interruptionFramesRef.current >= 5) {
+        interruptionFramesRef.current = 0;
+        generationRef.current += 1;
+        optionsRef.current.onInterruption?.();
+        changeStatus("armed");
+        startCaptureRef.current();
+      }
+      return;
     }
-  }, [finishCapture]);
+    if (optionsRef.current.suspended) return;
+    if (statusRef.current === "capturing") {
+      const speech = frame.rms > threshold;
+      speechFramesRef.current = speech ? speechFramesRef.current + 1 : 0;
+      if (speechFramesRef.current >= 2) {
+        speechStartedAtRef.current ??= now;
+        lastSpeechRef.current = now;
+      }
+      if (!speech) noiseFloorRef.current = Math.min(0.03, noiseFloorRef.current * 0.98 + frame.rms * 0.02);
+      const decision = commandCaptureDecision(now, startedAtRef.current, lastSpeechRef.current, optionsRef.current.silenceMs, optionsRef.current.maxDurationMs);
+      if (decision !== "continue") {
+        const tooShort = speechStartedAtRef.current !== null && lastSpeechRef.current !== null
+          && lastSpeechRef.current - speechStartedAtRef.current < (optionsRef.current.minimumSpeechMs ?? 180);
+        finishCapture(decision === "discard" || tooShort);
+      }
+    }
+  }, [changeStatus, finishCapture]);
   useEffect(() => { startCaptureRef.current = startCapture; }, [startCapture]);
 
   const start = useCallback(async () => {

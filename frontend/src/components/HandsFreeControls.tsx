@@ -6,6 +6,7 @@ export function HandsFreeControls() {
   const {
     handsFreeStatus, handsFreeMuted, silenceMs, setSilenceMs,
     startHandsFree, stopHandsFree, toggleHandsFreeMute, stopSpeaking, phase,
+    bargeInEnabled, setBargeInEnabled,
   } = useVoice();
   const active = handsFreeStatus !== "off" && handsFreeStatus !== "error";
   return <Card className="hands-free-card">
@@ -18,6 +19,7 @@ export function HandsFreeControls() {
     </div>
     <div className="hands-free-options">
       <label>End after silence <select aria-label="Silence duration" value={silenceMs} onChange={(event) => setSilenceMs(Number(event.target.value))}><option value="600">0.6 s</option><option value="900">0.9 s</option><option value="1400">1.4 s</option></select></label>
+      <label><input type="checkbox" checked={bargeInEnabled} onChange={(event) => setBargeInEnabled(event.target.checked)} /> Allow interruption while speaking</label>
     </div>
   </Card>;
 }

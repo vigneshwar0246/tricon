@@ -6,7 +6,9 @@ A local-first voice assistant internship project. React/TypeScript provides the 
 
 - Text chat uses the local Ollama HTTP API (default model `qwen2.5:3b`) and bounded in-memory conversation sessions.
 - The voice endpoint runs Faster-Whisper → Ollama → Piper when the local speech models are explicitly installed.
-- Browser recording, transcript/answer display, generated WAV playback, connection state, and measured stage timings are integrated in the frontend.
+- Browser recording, transcript/answer display, ordered chunked-WAV playback, connection state, and measured stage timings are integrated in the frontend.
+- Manual English/Hindi/Tamil selection persists in the browser and session; automatic Whisper detection rejects uncertain or unsupported language instead of guessing. English speech output is installed. Hindi and Tamil transcription/text are supported, but speech output remains unavailable until compatible local voices are configured.
+- The incremental `/api/voice/stream` path streams Ollama tokens and synthesizes complete sentence/phrase chunks with Piper. Piper itself is not native-streaming. Optional hands-free barge-in stops playback, aborts the stale request, and captures the new turn.
 - Real local Qwen text inference and a full Faster-Whisper → Ollama → Piper voice request were verified. The browser also has optional clap-activated hands-free capture while its page remains open; microphone and speaker hardware still need an interactive check. See [benchmark results](docs/benchmark-results.md).
 - The custom “Carrot” wake word is **not active**: no trained, validated Carrot detector model is installed or integrated. The interface says so rather than reporting a false wake-word status.
 
@@ -49,6 +51,16 @@ Copy-Item .env.example .env
 
 The frontend uses the Vite `/api` proxy by default. Set `VITE_API_BASE_URL` in `frontend/.env` only if FastAPI is hosted at a different origin. Vite variables are public client-side values; never place secrets there.
 
+For Hindi/Tamil speech output, configure `TTS_HI_MODEL_PATH`/`TTS_HI_CONFIG_PATH` and `TTS_TA_MODEL_PATH`/`TTS_TA_CONFIG_PATH` with verified Piper-compatible local voices. The app never substitutes the English voice or a cloud service. Readiness for each stage/language is returned by `/api/health`.
+
+Piper 1.8.0 currently lists Hindi voices but no Tamil voice. To deliberately install the Hindi Pratham voice (model download), run this from `backend/`, then uncomment its two paths in `.env` and restart FastAPI:
+
+```powershell
+python -m piper.download_voices hi_IN-pratham-medium --download-dir models\piper
+```
+
+Review the downloaded voice's model card/license and verify Hindi synthesis before marking it ready. Tamil voice output remains blocked; do not configure an invented filename or use the English voice.
+
 ## Run (three PowerShell terminals)
 
 Terminal 1 (if needed):
@@ -88,6 +100,7 @@ Stopping hands-free aborts the browser request and playback immediately; a FastA
 - `POST /api/chat` — JSON `{ "message": "Hello", "session_id": "optional-id" }`; returns response, session ID, and timing metrics.
 - `GET /api/chat/sessions`, `DELETE /api/chat/{session_id}` — list and delete bounded in-memory sessions.
 - `POST /api/voice` — multipart `audio` plus optional `session_id` and language override (`en`, `hi`, `ta`); returns real transcript, response, playback URL, STT/LLM/TTS/total timing, and an optional allowlisted command action. Exact spoken commands for local time, system status, repeat, clear conversation, and stop listening bypass the LLM; unsupported system actions are rejected.
+- `POST /api/voice/stream` — NDJSON transcript, token delta, ordered Piper audio-chunk, completion, and timing events. Client cancellation prevents an incomplete assistant turn from being committed.
 - `GET /api/audio/{filename}` — serves generated WAV responses until cleanup (files older than one hour and files beyond the newest 100 are pruned on new synthesis).
 
 ## Verification
@@ -96,6 +109,7 @@ Stopping hands-free aborts the browser request and playback immediately; a FastA
 cd D:\Trikon-Voice-AI\backend
 python -m pytest
 python -m compileall -q app tests
+python scripts/benchmark_voice.py scripts/multilingual-manifest.example.json --runs 5 --output benchmark.json
 
 cd D:\Trikon-Voice-AI\frontend
 npm test
@@ -104,6 +118,8 @@ npm run build
 ```
 
 Automated tests do not need Ollama, speech model files, downloads, or GPU. Manual real-inference acceptance steps are in [demo script](docs/demo-script.md). For limitations and unmeasured performance, see [benchmarks](docs/benchmark-results.md).
+
+The latest real English short/long measurements are in [docs/benchmark-2026-10-21.json](docs/benchmark-2026-10-21.json). Interpretation, WER normalization, and limitations are recorded in [docs/benchmark-results.md](docs/benchmark-results.md).
 
 ## Data and limitations
 

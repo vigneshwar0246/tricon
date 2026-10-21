@@ -20,7 +20,7 @@ def _service_error(error: Exception) -> HTTPException:
 @router.post("", response_model=ChatResponse)
 async def chat(payload: ChatRequest, request: Request) -> ChatResponse:
     try:
-        result = await request.app.state.pipeline.chat(payload.message, payload.session_id)
+        result = await request.app.state.pipeline.chat(payload.message, payload.session_id, payload.language)
     except SessionCapacityError as exc:
         raise HTTPException(status_code=429, detail=str(exc)) from exc
     except (OllamaUnavailableError, OllamaModelMissingError, OllamaResponseError) as exc:

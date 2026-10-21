@@ -8,8 +8,11 @@ const phaseCopy = {
   "requesting-permission": ["Opening microphone", "check your browser permission"],
   armed: ["Hands-free ready", "starting microphone"],
   listening: ["Listening", "pause when you are done speaking"],
+  transcribing: ["Transcribing", "recognizing your speech locally"],
+  generating: ["Generating", "the local model is answering"],
   processing: ["Thinking", "your local models are working"],
   speaking: ["Speaking", "playing the generated response"],
+  interrupted: ["Interrupted", "listening to your new request"],
   error: ["Ready to try again", "check the message below"],
 } as const;
 

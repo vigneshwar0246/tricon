@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getHealth, sendText, sendVoice } from "./api";
+import { getHealth, sendText, sendVoice, streamVoice } from "./api";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -44,5 +44,29 @@ describe("local API client", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ response: "answer" }), { status: 200 })));
     await expect(sendVoice(new Blob(["audio"], { type: "audio/webm" }), "session"))
       .rejects.toThrow("The API response did not contain a transcription.");
+  });
+
+  it("parses ordered incremental voice events and forwards cancellation", async () => {
+    const encoder = new TextEncoder();
+    const events = [
+      { type: "transcript", transcript: "hello", language: "en" },
+      { type: "text", delta: "Hello there." },
+      { type: "audio", url: "/api/audio/chunk.wav", index: 0 },
+      { type: "done", response: "Hello there.", metrics: { first_token_ms: 12 } },
+    ];
+    const body = new ReadableStream({
+      start(controller) {
+        controller.enqueue(encoder.encode(events.map((event) => JSON.stringify(event)).join("\n") + "\n"));
+        controller.close();
+      },
+    });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(body, { status: 200 })));
+    const received: string[] = [];
+    const controller = new AbortController();
+
+    await streamVoice(new Blob(["audio"], { type: "audio/webm" }), "session", "en", controller.signal,
+      (event) => received.push(event.type));
+
+    expect(received).toEqual(["transcript", "text", "audio", "done"]);
   });
 });

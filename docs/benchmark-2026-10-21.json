@@ -1,0 +1,414 @@
+{
+  "generated_at_epoch": 1792598693.6491067,
+  "hardware": {
+    "platform": "Windows-10-10.0.26200-SP0",
+    "processor": "Intel64 Family 6 Model 186 Stepping 2, GenuineIntel",
+    "gpu": "NVIDIA GeForce RTX 3050 6GB Laptop GPU, 581.57, 6144 MiB"
+  },
+  "health": {
+    "status": "ok",
+    "backend": {
+      "available": true,
+      "status": "ready",
+      "model": null,
+      "detail": "FastAPI is responding."
+    },
+    "ollama": {
+      "available": true,
+      "status": "ready",
+      "model": "qwen2.5:3b",
+      "detail": "Configured model is installed."
+    },
+    "services": {
+      "api": true,
+      "llm": true,
+      "stt": true,
+      "tts": true
+    },
+    "models": {
+      "stt": "faster-whisper-base",
+      "llm": "qwen2.5:3b",
+      "tts": "en_US-norman-medium",
+      "language": "auto"
+    },
+    "language_support": {
+      "en": {
+        "stt": true,
+        "llm": true,
+        "tts": true
+      },
+      "hi": {
+        "stt": true,
+        "llm": true,
+        "tts": false
+      },
+      "ta": {
+        "stt": true,
+        "llm": true,
+        "tts": false
+      }
+    }
+  },
+  "diagnostics": {
+    "stt": {
+      "configured_device": "cpu",
+      "active_device": "cpu",
+      "compute_type": "int8",
+      "active_compute_type": "int8",
+      "last_successful_device": "cpu",
+      "fallback_reason": null
+    },
+    "cuda": {
+      "device_count": 1,
+      "cublas12_found": false,
+      "cudnn9_found": true,
+      "inference_verified": false,
+      "detail": "CUDA inference is not verified; cuBLAS 12 is unavailable. STT remains on CPU."
+    },
+    "ollama_loaded_models": [
+      {
+        "name": "qwen2.5:3b",
+        "size_vram_bytes": 2163568803
+      }
+    ]
+  },
+  "runs_per_sample": 5,
+  "languages": {
+    "en": {
+      "successful_runs": 10,
+      "failed_runs": 0,
+      "samples": {
+        "../benchmark_samples/english-long.wav": {
+          "audio_duration_seconds": 15.569,
+          "successful_runs": 5,
+          "failed_runs": 0,
+          "cold_candidate": {
+            "success": true,
+            "cold_candidate": true,
+            "language": "en",
+            "sample": "../benchmark_samples/english-long.wav",
+            "audio_duration_seconds": 15.569,
+            "wall_ms": 7076.62,
+            "metrics": {
+              "stt_ms": 3189.94,
+              "llm_ms": 1253.89,
+              "tts_ms": 2601.29,
+              "total_ms": 7065.32,
+              "first_token_ms": null,
+              "first_audio_ms": null,
+              "audio_duration_ms": null
+            },
+            "transcript": "This is a Lombard Benchmark recording for the local voice assistant. It contains several complete sentences, names such as trekking, and the numbers 21 and 305. The purpose is to measure transcription, language model, and speech synthesis latency with a Lombard English utterance.",
+            "wer": 0.1739
+          },
+          "warm_wall_ms": {
+            "p50": 6902.12,
+            "p95": 7541.01,
+            "min": 5959.42,
+            "max": 7541.01
+          },
+          "stt_ms": {
+            "p50": 3202.08,
+            "p95": 3441.76,
+            "min": 3080.78,
+            "max": 3441.76
+          },
+          "llm_ms": {
+            "p50": 1253.89,
+            "p95": 1452.57,
+            "min": 1043.3,
+            "max": 1452.57
+          },
+          "tts_ms": {
+            "p50": 2497.37,
+            "p95": 2972.67,
+            "min": 1673.63,
+            "max": 2972.67
+          },
+          "wer": {
+            "p50": 0.17,
+            "p95": 0.17,
+            "min": 0.17,
+            "max": 0.17
+          }
+        },
+        "../benchmark_samples/english-short.wav": {
+          "audio_duration_seconds": 3.843,
+          "successful_runs": 5,
+          "failed_runs": 0,
+          "cold_candidate": {
+            "success": true,
+            "cold_candidate": true,
+            "language": "en",
+            "sample": "../benchmark_samples/english-short.wav",
+            "audio_duration_seconds": 3.843,
+            "wall_ms": 4356.57,
+            "metrics": {
+              "stt_ms": 1535.54,
+              "llm_ms": 2238.71,
+              "tts_ms": 555.87,
+              "total_ms": 4348.02,
+              "first_token_ms": null,
+              "first_audio_ms": null,
+              "audio_duration_ms": null
+            },
+            "transcript": "Sure thing, and here in ready to listen, what do you want to talk about?",
+            "wer": null
+          },
+          "warm_wall_ms": {
+            "p50": 4086.86,
+            "p95": 4813.11,
+            "min": 3929.09,
+            "max": 4813.11
+          },
+          "stt_ms": {
+            "p50": 2383.66,
+            "p95": 2502.54,
+            "min": 1535.54,
+            "max": 2502.54
+          },
+          "llm_ms": {
+            "p50": 790.05,
+            "p95": 2238.71,
+            "min": 567.35,
+            "max": 2238.71
+          },
+          "tts_ms": {
+            "p50": 976.91,
+            "p95": 1283.26,
+            "min": 555.87,
+            "max": 1283.26
+          },
+          "wer": {
+            "p50": null,
+            "p95": null,
+            "min": null,
+            "max": null
+          }
+        }
+      },
+      "warm_wall_ms": {
+        "p50": 5386.26,
+        "p95": 7541.01,
+        "min": 3929.09,
+        "max": 7541.01
+      },
+      "stt_ms": {
+        "p50": 2791.66,
+        "p95": 3441.76,
+        "min": 1535.54,
+        "max": 3441.76
+      },
+      "llm_ms": {
+        "p50": 1135.09,
+        "p95": 2238.71,
+        "min": 567.35,
+        "max": 2238.71
+      },
+      "tts_ms": {
+        "p50": 1478.45,
+        "p95": 2972.67,
+        "min": 555.87,
+        "max": 2972.67
+      },
+      "wer": {
+        "p50": 0.17,
+        "p95": 0.17,
+        "min": 0.17,
+        "max": 0.17
+      }
+    }
+  },
+  "observations": [
+    {
+      "success": true,
+      "cold_candidate": true,
+      "language": "en",
+      "sample": "../benchmark_samples/english-short.wav",
+      "audio_duration_seconds": 3.843,
+      "wall_ms": 4356.57,
+      "metrics": {
+        "stt_ms": 1535.54,
+        "llm_ms": 2238.71,
+        "tts_ms": 555.87,
+        "total_ms": 4348.02,
+        "first_token_ms": null,
+        "first_audio_ms": null,
+        "audio_duration_ms": null
+      },
+      "transcript": "Sure thing, and here in ready to listen, what do you want to talk about?",
+      "wer": null
+    },
+    {
+      "success": true,
+      "cold_candidate": false,
+      "language": "en",
+      "sample": "../benchmark_samples/english-short.wav",
+      "audio_duration_seconds": 3.843,
+      "wall_ms": 3992.44,
+      "metrics": {
+        "stt_ms": 2056.15,
+        "llm_ms": 745.27,
+        "tts_ms": 1164.5,
+        "total_ms": 3985.12,
+        "first_token_ms": null,
+        "first_audio_ms": null,
+        "audio_duration_ms": null
+      },
+      "transcript": "Sure thing, and here in ready to listen, what do you want to talk about?",
+      "wer": null
+    },
+    {
+      "success": true,
+      "cold_candidate": false,
+      "language": "en",
+      "sample": "../benchmark_samples/english-short.wav",
+      "audio_duration_seconds": 3.843,
+      "wall_ms": 4181.27,
+      "metrics": {
+        "stt_ms": 2383.66,
+        "llm_ms": 790.05,
+        "tts_ms": 976.91,
+        "total_ms": 4172.47,
+        "first_token_ms": null,
+        "first_audio_ms": null,
+        "audio_duration_ms": null
+      },
+      "transcript": "Sure thing, and here in ready to listen, what do you want to talk about?",
+      "wer": null
+    },
+    {
+      "success": true,
+      "cold_candidate": false,
+      "language": "en",
+      "sample": "../benchmark_samples/english-short.wav",
+      "audio_duration_seconds": 3.843,
+      "wall_ms": 4813.11,
+      "metrics": {
+        "stt_ms": 2502.54,
+        "llm_ms": 987.67,
+        "tts_ms": 1283.26,
+        "total_ms": 4807.0,
+        "first_token_ms": null,
+        "first_audio_ms": null,
+        "audio_duration_ms": null
+      },
+      "transcript": "Sure thing, and here in ready to listen, what do you want to talk about?",
+      "wer": null
+    },
+    {
+      "success": true,
+      "cold_candidate": false,
+      "language": "en",
+      "sample": "../benchmark_samples/english-short.wav",
+      "audio_duration_seconds": 3.843,
+      "wall_ms": 3929.09,
+      "metrics": {
+        "stt_ms": 2471.35,
+        "llm_ms": 567.35,
+        "tts_ms": 861.0,
+        "total_ms": 3921.08,
+        "first_token_ms": null,
+        "first_audio_ms": null,
+        "audio_duration_ms": null
+      },
+      "transcript": "Sure thing, and here in ready to listen, what do you want to talk about?",
+      "wer": null
+    },
+    {
+      "success": true,
+      "cold_candidate": true,
+      "language": "en",
+      "sample": "../benchmark_samples/english-long.wav",
+      "audio_duration_seconds": 15.569,
+      "wall_ms": 7076.62,
+      "metrics": {
+        "stt_ms": 3189.94,
+        "llm_ms": 1253.89,
+        "tts_ms": 2601.29,
+        "total_ms": 7065.32,
+        "first_token_ms": null,
+        "first_audio_ms": null,
+        "audio_duration_ms": null
+      },
+      "transcript": "This is a Lombard Benchmark recording for the local voice assistant. It contains several complete sentences, names such as trekking, and the numbers 21 and 305. The purpose is to measure transcription, language model, and speech synthesis latency with a Lombard English utterance.",
+      "wer": 0.1739
+    },
+    {
+      "success": true,
+      "cold_candidate": false,
+      "language": "en",
+      "sample": "../benchmark_samples/english-long.wav",
+      "audio_duration_seconds": 15.569,
+      "wall_ms": 7249.28,
+      "metrics": {
+        "stt_ms": 3441.76,
+        "llm_ms": 1270.21,
+        "tts_ms": 2497.37,
+        "total_ms": 7238.98,
+        "first_token_ms": null,
+        "first_audio_ms": null,
+        "audio_duration_ms": null
+      },
+      "transcript": "This is a Lombard Benchmark recording for the local voice assistant. It contains several complete sentences, names such as trekking, and the numbers 21 and 305. The purpose is to measure transcription, language model, and speech synthesis latency with a Lombard English utterance.",
+      "wer": 0.1739
+    },
+    {
+      "success": true,
+      "cold_candidate": false,
+      "language": "en",
+      "sample": "../benchmark_samples/english-long.wav",
+      "audio_duration_seconds": 15.569,
+      "wall_ms": 7541.01,
+      "metrics": {
+        "stt_ms": 3080.78,
+        "llm_ms": 1452.57,
+        "tts_ms": 2972.67,
+        "total_ms": 7530.65,
+        "first_token_ms": null,
+        "first_audio_ms": null,
+        "audio_duration_ms": null
+      },
+      "transcript": "This is a Lombard Benchmark recording for the local voice assistant. It contains several complete sentences, names such as trekking, and the numbers 21 and 305. The purpose is to measure transcription, language model, and speech synthesis latency with a Lombard English utterance.",
+      "wer": 0.1739
+    },
+    {
+      "success": true,
+      "cold_candidate": false,
+      "language": "en",
+      "sample": "../benchmark_samples/english-long.wav",
+      "audio_duration_seconds": 15.569,
+      "wall_ms": 6554.97,
+      "metrics": {
+        "stt_ms": 3202.08,
+        "llm_ms": 1226.88,
+        "tts_ms": 2086.09,
+        "total_ms": 6545.37,
+        "first_token_ms": null,
+        "first_audio_ms": null,
+        "audio_duration_ms": null
+      },
+      "transcript": "This is a Lombard Benchmark recording for the local voice assistant. It contains several complete sentences, names such as trekking, and the numbers 21 and 305. The purpose is to measure transcription, language model, and speech synthesis latency with a Lombard English utterance.",
+      "wer": 0.1739
+    },
+    {
+      "success": true,
+      "cold_candidate": false,
+      "language": "en",
+      "sample": "../benchmark_samples/english-long.wav",
+      "audio_duration_seconds": 15.569,
+      "wall_ms": 5959.42,
+      "metrics": {
+        "stt_ms": 3206.34,
+        "llm_ms": 1043.3,
+        "tts_ms": 1673.63,
+        "total_ms": 5948.59,
+        "first_token_ms": null,
+        "first_audio_ms": null,
+        "audio_duration_ms": null
+      },
+      "transcript": "This is a Lombard Benchmark recording for the local voice assistant. It contains several complete sentences, names such as trekking, and the numbers 21 and 305. The purpose is to measure transcription, language model, and speech synthesis latency with a Lombard English utterance.",
+      "wer": 0.1739
+    }
+  ]
+}

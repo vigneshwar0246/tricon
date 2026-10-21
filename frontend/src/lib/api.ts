@@ -24,6 +24,8 @@ function parseMetrics(data: UnknownRecord, measuredTotal: number): Metrics {
     llmMs: readNumber(data, ["metrics.llm_ms", "timings.llm_ms", "llm_ms"]),
     ttsMs: readNumber(data, ["metrics.tts_ms", "timings.tts_ms", "tts_ms"]),
     totalMs: readNumber(data, ["metrics.total_ms", "timings.total_ms", "total_ms"]) ?? measuredTotal,
+    firstTokenMs: readNumber(data, ["metrics.first_token_ms", "timings.first_token_ms", "first_token_ms"]),
+    firstAudioMs: readNumber(data, ["metrics.first_audio_ms", "timings.first_audio_ms", "first_audio_ms"]),
   };
 }
 
@@ -42,12 +44,12 @@ function resolveAudioUrl(value: unknown): string | undefined {
   catch { return undefined; }
 }
 
-export async function sendText(message: string, sessionId: string) {
+export async function sendText(message: string, sessionId: string, language?: string) {
   const started = performance.now();
   const response = await fetch(`${API_BASE}/api/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ message, session_id: sessionId }),
+    body: JSON.stringify({ message, session_id: sessionId, language: language || undefined }),
   });
   const data = await parseResponse(response);
   const content = readPath(data, ["response", "message", "text", "assistant_text"]);
@@ -76,9 +78,66 @@ export async function sendVoice(blob: Blob, sessionId: string, language?: string
     content,
     audioUrl,
     action: typeof data.action === "string" ? data.action : undefined,
+    language: typeof data.language === "string" ? data.language : undefined,
+    languageConfidence: typeof data.language_confidence === "number" ? data.language_confidence : undefined,
     sessionId: String(data.session_id ?? sessionId),
     metrics: parseMetrics(data, performance.now() - started),
   };
+}
+
+export interface VoiceStreamEvent {
+  type: "transcript" | "text" | "audio" | "done" | "error";
+  session_id?: string;
+  transcript?: string;
+  delta?: string;
+  response?: string;
+  url?: string;
+  detail?: string;
+  action?: string;
+  language?: string;
+  language_confidence?: number;
+  metrics?: UnknownRecord;
+}
+
+export async function streamVoice(
+  blob: Blob,
+  sessionId: string,
+  language: string | undefined,
+  signal: AbortSignal,
+  onEvent: (event: VoiceStreamEvent) => void,
+): Promise<void> {
+  const body = new FormData();
+  const extension = blob.type.includes("ogg") ? "ogg" : blob.type.includes("mp4") ? "mp4" : "webm";
+  body.append("audio", blob, `voice.${extension}`);
+  body.append("session_id", sessionId);
+  if (language) body.append("language", language);
+  const response = await fetch(`${API_BASE}/api/voice/stream`, { method: "POST", body, signal });
+  if (!response.ok || !response.body) {
+    await parseResponse(response);
+    throw new Error("The streaming voice response was unavailable.");
+  }
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  while (true) {
+    const { done, value } = await reader.read();
+    buffer += decoder.decode(value, { stream: !done });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      const event = JSON.parse(line) as VoiceStreamEvent;
+      if (event.url) event.url = resolveAudioUrl(event.url);
+      if (event.type === "error") throw new Error(event.detail || "The streaming voice pipeline failed.");
+      onEvent(event);
+    }
+    if (done) break;
+  }
+  if (buffer.trim()) {
+    const event = JSON.parse(buffer) as VoiceStreamEvent;
+    if (event.type === "error") throw new Error(event.detail || "The streaming voice pipeline failed.");
+    onEvent(event);
+  }
 }
 
 export async function deleteSession(sessionId: string): Promise<void> {
@@ -107,6 +166,8 @@ export async function getHealth(signal?: AbortSignal): Promise<SystemHealth> {
       tts: typeof models.tts === "string" ? models.tts : undefined,
       language: typeof models.language === "string" ? models.language : undefined,
     },
+    languageSupport: data.language_support && typeof data.language_support === "object"
+      ? data.language_support as SystemHealth["languageSupport"] : undefined,
     checkedAt: new Date().toISOString(),
   };
 }

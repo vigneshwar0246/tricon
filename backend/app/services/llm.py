@@ -1,6 +1,8 @@
 """Async client for the local Ollama HTTP API."""
 
 import logging
+import json
+from collections.abc import AsyncIterator
 from typing import Any
 
 import httpx
@@ -114,6 +116,52 @@ class OllamaClient:
         if not isinstance(text, str) or not text.strip():
             raise OllamaResponseError("Ollama returned an empty reply.")
         return text.strip(), payload
+
+    async def chat_stream(
+        self, messages: list[dict[str, str]], *, num_predict: int | None = None
+    ) -> AsyncIterator[dict[str, Any]]:
+        """Yield Ollama token events and one final metadata event from its NDJSON stream."""
+        try:
+            async with self._get_client().stream(
+                "POST",
+                f"{self.settings.ollama_base_url}/api/chat",
+                json={
+                    "model": self.settings.ollama_model,
+                    "messages": messages,
+                    "stream": True,
+                    "options": {
+                        "temperature": self.settings.ollama_temperature,
+                        "num_ctx": self.settings.ollama_num_ctx,
+                        "num_predict": num_predict if num_predict is not None else self.settings.ollama_num_predict,
+                    },
+                    "keep_alive": "15m",
+                },
+            ) as response:
+                if response.status_code == 404:
+                    raise OllamaModelMissingError(
+                        f"Ollama model '{self.settings.ollama_model}' is missing. Pull it with 'ollama pull {self.settings.ollama_model}'."
+                    )
+                if response.is_error:
+                    await response.aread()
+                    raise OllamaResponseError(f"Ollama returned HTTP {response.status_code}.")
+                async for line in response.aiter_lines():
+                    if not line:
+                        continue
+                    try:
+                        payload = json.loads(line)
+                    except ValueError as exc:
+                        raise OllamaResponseError("Ollama returned malformed streaming data.") from exc
+                    if not isinstance(payload, dict):
+                        continue
+                    token = payload.get("message", {}).get("content", "")
+                    if isinstance(token, str) and token:
+                        yield {"token": token}
+                    if payload.get("done"):
+                        yield {"done": True, "metadata": payload}
+        except httpx.TimeoutException as exc:
+            raise OllamaUnavailableError("Ollama did not respond before the request timed out.") from exc
+        except httpx.HTTPError as exc:
+            raise OllamaUnavailableError("Ollama is not reachable at the configured local URL.") from exc
 
 
 ollama_client = OllamaClient()

@@ -1,4 +1,4 @@
-export type AssistantPhase = "idle" | "requesting-permission" | "armed" | "listening" | "processing" | "speaking" | "error";
+export type AssistantPhase = "idle" | "requesting-permission" | "armed" | "listening" | "transcribing" | "generating" | "processing" | "speaking" | "interrupted" | "error";
 export type ServiceState = "unknown" | "ready" | "unavailable";
 
 export interface Message {
@@ -17,6 +17,8 @@ export interface Metrics {
   firstAudioMs?: number;
   captureMs?: number;
   vadEndMs?: number;
+  firstTokenMs?: number;
+  playbackStartMs?: number;
 }
 
 export interface SystemHealth {
@@ -26,4 +28,5 @@ export interface SystemHealth {
   tts: ServiceState;
   models?: { stt?: string; llm?: string; tts?: string; language?: string };
   checkedAt?: string;
+  languageSupport?: Record<string, { stt: boolean; llm: boolean; tts: boolean }>;
 }

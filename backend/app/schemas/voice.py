@@ -15,3 +15,5 @@ class VoiceResponse(BaseModel):
     action: str | None = None
     metrics: MetricsResponse
     created_at: datetime
+    language: str | None = None
+    language_confidence: float | None = None

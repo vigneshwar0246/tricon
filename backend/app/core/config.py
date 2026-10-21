@@ -37,11 +37,17 @@ class Settings(BaseSettings):
     stt_device: str = "cpu"
     stt_compute_type: str = "int8"
     stt_language: str | None = None
+    stt_beam_size: int = Field(default=5, ge=1, le=10)
+    stt_language_confidence_threshold: float = Field(default=0.55, ge=0, le=1)
     audio_max_size_mb: int = Field(default=25, ge=1, le=100)
     audio_max_duration_seconds: int = Field(default=300, ge=1, le=1800)
 
     tts_model_path: Path = BACKEND_DIR / "models" / "piper" / "en_US-norman-medium.onnx"
     tts_config_path: Path | None = None
+    tts_hi_model_path: Path | None = None
+    tts_hi_config_path: Path | None = None
+    tts_ta_model_path: Path | None = None
+    tts_ta_config_path: Path | None = None
     audio_output_dir: Path = BACKEND_DIR / "generated_audio"
     tts_use_cuda: bool = False
 
@@ -50,10 +56,14 @@ class Settings(BaseSettings):
         "http://127.0.0.1:5173",
     ]
 
-    @field_validator("stt_model_path", "tts_model_path", "audio_output_dir", "tts_config_path", mode="before")
+    @field_validator(
+        "stt_model_path", "tts_model_path", "audio_output_dir", "tts_config_path",
+        "tts_hi_model_path", "tts_hi_config_path", "tts_ta_model_path", "tts_ta_config_path",
+        mode="before",
+    )
     @classmethod
     def resolve_local_paths(cls, value: str | Path | None) -> Path | None:
-        if value is None:
+        if value is None or value == "":
             return None
         path = Path(value)
         return path if path.is_absolute() else BACKEND_DIR / path

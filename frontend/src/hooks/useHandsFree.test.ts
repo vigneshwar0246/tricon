@@ -138,4 +138,62 @@ describe("hands-free shutdown", () => {
     expect(result.current.status).toBe("capturing");
     act(() => result.current.stop());
   });
+
+  it("requires sustained speech before barge-in and rearms capture without waiting for stale work", async () => {
+    vi.useFakeTimers();
+    let loud = true;
+    const interruption = vi.fn();
+    const command = vi.fn(() => new Promise<void>(() => {}));
+    Object.defineProperty(navigator, "mediaDevices", {
+      configurable: true,
+      value: { getUserMedia: vi.fn(async () => ({
+        getTracks: () => [{ stop: vi.fn() }],
+        getAudioTracks: () => [{ onended: null }],
+      })) },
+    });
+    class MockAudioContext {
+      destination = {};
+      resume = vi.fn(async () => {});
+      close = vi.fn(async () => {});
+      createAnalyser() {
+        return { fftSize: 512, connect: vi.fn(),
+          getFloatTimeDomainData: (samples: Float32Array) => samples.fill(loud ? 0.2 : 0.001) };
+      }
+      createMediaStreamSource() { return { connect: vi.fn() }; }
+      createGain() { return { gain: { value: 0 }, connect: vi.fn() }; }
+    }
+    class MockRecorder {
+      state: RecordingState = "inactive";
+      mimeType = "audio/webm";
+      onstop: (() => void) | null = null;
+      ondataavailable: ((event: { data: Blob }) => void) | null = null;
+      start() { this.state = "recording"; }
+      stop() {
+        this.state = "inactive";
+        this.ondataavailable?.({ data: new Blob(["speech"], { type: this.mimeType }) });
+        window.setTimeout(() => this.onstop?.(), 0);
+      }
+    }
+    vi.stubGlobal("AudioContext", MockAudioContext);
+    vi.stubGlobal("MediaRecorder", MockRecorder);
+    const callbacks = { ...options(), onCommand: command, monitorInterruption: false, onInterruption: interruption };
+    const { result, rerender } = renderHook(({ monitor }) => useHandsFree({ ...callbacks, monitorInterruption: monitor }),
+      { initialProps: { monitor: false } });
+
+    await act(async () => { await result.current.start(); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(250); });
+    loud = false;
+    await act(async () => { await vi.advanceTimersByTimeAsync(950); });
+    expect(command).toHaveBeenCalledOnce();
+    expect(result.current.status).toBe("processing");
+
+    rerender({ monitor: true });
+    loud = true;
+    await act(async () => { await vi.advanceTimersByTimeAsync(40); });
+    expect(interruption).not.toHaveBeenCalled();
+    await act(async () => { await vi.advanceTimersByTimeAsync(20); });
+    expect(interruption).toHaveBeenCalledOnce();
+    expect(result.current.status).toBe("capturing");
+    act(() => result.current.stop());
+  });
 });

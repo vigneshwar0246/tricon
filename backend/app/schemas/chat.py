@@ -11,6 +11,7 @@ class ChatRequest(BaseModel):
 
     message: str = Field(min_length=1, max_length=8000)
     session_id: str | None = Field(default=None, min_length=1, max_length=128)
+    language: Literal["en", "hi", "ta"] | None = None
 
 
 class MetricsResponse(BaseModel):
@@ -18,6 +19,9 @@ class MetricsResponse(BaseModel):
     llm_ms: float | None = None
     tts_ms: float | None = None
     total_ms: float
+    first_token_ms: float | None = None
+    first_audio_ms: float | None = None
+    audio_duration_ms: float | None = None
 
 
 class ChatResponse(BaseModel):
@@ -51,3 +55,4 @@ class HealthResponse(BaseModel):
     ollama: HealthService
     services: dict[str, bool | None]
     models: dict[str, str]
+    language_support: dict[str, dict[str, bool]] = Field(default_factory=dict)

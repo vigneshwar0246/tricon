@@ -105,4 +105,8 @@ async def health(request: Request) -> HealthResponse:
             "tts": settings.tts_model_path.stem,
             "language": settings.stt_language or "auto",
         },
+        language_support={
+            language: {"stt": stt.available, "llm": model_installed, "tts": tts.available_for(language)}
+            for language in ("en", "hi", "ta")
+        },
     )

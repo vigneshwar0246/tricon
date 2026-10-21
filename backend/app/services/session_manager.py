@@ -25,6 +25,7 @@ class ConversationSession:
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     active_requests: int = 0
     deleting: bool = False
+    language: str | None = None
 
 
 class SessionCapacityError(RuntimeError):
