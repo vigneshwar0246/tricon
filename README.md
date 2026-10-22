@@ -20,7 +20,11 @@ English & Hindi · Streaming responses · Hands-free conversations · Local infe
 
 ## 🎬 Demo
 
-https://github.com/vigneshwar0246/trikon-ai-assistant/blob/main/artifacts/demo/voice-ai-demo-cut.mp
+
+
+https://github.com/user-attachments/assets/98632865-c63d-4988-a2cc-54b72ab98caf
+
+
 
 [Download the demo MP4](https://github.com/vigneshwar0246/trikon-ai-assistant/blob/main/artifacts/demo/voice-ai-demo-cut.mp4)
 
