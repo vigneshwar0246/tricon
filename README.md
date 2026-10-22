@@ -18,25 +18,11 @@ English & Hindi · Streaming responses · Hands-free conversations · Local infe
 
 </div>
 
----
 ## 🎬 Demo
 
-PASTE_YOUR_GITHUB_VIDEO_ATTACHMENT_URL_HERE
+https://github.com/user-attachments/assets/PASTE_REAL_VIDEO_ID_HERE
 
-<div align="center">
-
-**2 min 56 sec · MP4 · H.264 video + AAC audio · approximately 6.2 MB**
-
-[▶ Download the full demo](artifacts/demo/voice-ai-demo-cut.mp4) · [Open the local browser player](docs/demo.html)
-
-</div>
-## 🎬 Demo
-
-English & Hindi · 2 min 56 sec · Sound on
-
-https://github.com/user-attachments/assets/REPLACE_WITH_YOUR_REAL_VIDEO_ID
-
-[Download the demo MP4](artifacts/demo/voice-ai-demo-cut.mp4)
+[Download the demo MP4](https://github.com/vigneshwar0246/trikon-ai-assistant/blob/main/artifacts/demo/voice-ai-demo-cut.mp4)
 
 Watch the demonstration to see Trikon Voice AI handle voice input, local AI responses, and spoken output.
 
