@@ -22,7 +22,9 @@ English & Hindi · Streaming responses · Hands-free conversations · Local infe
 
 ## 🎬 Demo
 
-[![Animated preview of the actual Trikon Voice AI demo. Click to open the full MP4.](docs/assets/demo-preview.gif)](artifacts/demo/voice-ai-demo-cut.mp4)
+<video src="artifacts/demo/voice-ai-demo-cut.mp4" poster="docs/assets/demo-poster.jpg" controls playsinline preload="metadata" width="960" aria-label="Trikon Voice AI demo with audio">
+  <a href="artifacts/demo/voice-ai-demo-cut.mp4">Play the Trikon Voice AI demo with audio</a>
+</video>
 
 <div align="center">
 
@@ -31,7 +33,9 @@ English & Hindi · Streaming responses · Hands-free conversations · Local infe
 
 </div>
 
-The animation above is a silent preview sampled from the actual recording. The linked MP4 contains the full demo and audio. For a local player with play/pause, seeking, volume, and fullscreen, open [docs/demo.html](docs/demo.html) in your browser after cloning the repository. GitHub displays HTML files as source; this player is intended for local use.
+Press **Play** to watch the full demo with its original audio. The embedded player provides playback, seeking, volume, and fullscreen controls in Markdown viewers that support HTML video. If your viewer blocks embedded media, use the video link above or open [the local browser player](docs/demo.html).
+
+**GitHub rendering:** the repository-relative video above does not enable GitHub's inline attachment player. To play with sound inside the GitHub README, upload the MP4 using the steps below and replace this video block with the generated attachment URL.
 
 <details>
 <summary><strong>Enable a playable video directly inside this README on GitHub</strong></summary>
