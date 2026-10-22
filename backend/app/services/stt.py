@@ -13,7 +13,6 @@ logger = logging.getLogger(__name__)
 
 LANGUAGE_PROMPTS = {
     "hi": "यह हिंदी भाषा में देवनागरी लिपि का स्पष्ट वाक्य है।",
-    "ta": "இது தமிழ் எழுத்தில் பேசப்பட்ட தெளிவான தமிழ் வாக்கியம்.",
 }
 
 
@@ -69,7 +68,7 @@ class SpeechToTextService:
 
     def _get_model_for_language(self, language: str | None) -> Any:
         path = self.settings.stt_multilingual_model_path
-        if language not in {"hi", "ta"} or path is None:
+        if language != "hi" or path is None:
             return self._get_model()
         if language in self._language_models:
             return self._language_models[language]

@@ -15,11 +15,10 @@ def test_language_voice_mapping_never_falls_back_to_english(tmp_path: Path) -> N
     english = tmp_path / "english.onnx"
     english.write_bytes(b"model")
     Path(f"{english}.json").write_text("{}", encoding="utf-8")
-    service = TextToSpeechService(Settings(tts_model_path=english, tts_hi_model_path=None, tts_ta_model_path=None))
+    service = TextToSpeechService(Settings(tts_model_path=english, tts_hi_model_path=None))
 
     assert service.available_for("en") is True
     assert service.available_for("hi") is False
-    assert service.available_for("ta") is False
     with pytest.raises(VoiceModelNotInstalledError, match="'hi'"):
         service._get_voice("hi")
 

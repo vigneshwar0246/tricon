@@ -12,7 +12,13 @@ class Command:
 
 
 def route_command(transcript: str, last_response: str | None = None, now: datetime | None = None) -> Command | None:
-    text = re.sub(r"[^a-z0-9 ]", "", transcript.lower()).strip()
+    text = " ".join(re.sub(r"[^a-z0-9 ]", " ", transcript.lower()).split())
+    if text in {
+        "system status", "tell me the system status", "tell me the current system status",
+        "is everything working", "check all services", "are the voice models ready",
+        "check whether the ai assistant is ready", "check the system requirements",
+    }:
+        return Command("", "system_status")
     if text in {"stop listening", "stop voice listening", "stop hands free", "stop handsfree"}:
         return Command("Hands-free listening stopped.", "stop_listening")
     if text in {"clear conversation", "clear the conversation", "start a new conversation"}:

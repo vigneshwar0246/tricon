@@ -56,8 +56,6 @@ class TextToSpeechService:
     def voice_paths(self, language: str) -> tuple[Path | None, Path | None]:
         if language == "hi":
             model_path, config_path = self.settings.tts_hi_model_path, self.settings.tts_hi_config_path
-        elif language == "ta":
-            model_path, config_path = self.settings.tts_ta_model_path, self.settings.tts_ta_config_path
         else:
             model_path, config_path = self.settings.tts_model_path, self.settings.tts_config_path
         if model_path is not None and config_path is None:
@@ -71,7 +69,7 @@ class TextToSpeechService:
         return model_path.is_file() and config_path.is_file() and find_spec("piper") is not None
 
     def language_availability(self) -> dict[str, bool]:
-        return {language: self.available_for(language) for language in ("en", "hi", "ta")}
+        return {language: self.available_for(language) for language in ("en", "hi")}
 
     def _get_voice(self, language: str = "en"):
         if language == "en" and self._voice is not None:

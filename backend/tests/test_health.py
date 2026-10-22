@@ -38,6 +38,7 @@ def test_health_reports_ollama_offline_without_failing_api() -> None:
 
 def test_diagnostics_does_not_claim_cuda_from_device_presence() -> None:
     with TestClient(app) as client:
+        app.state.ollama.list_models = AsyncMock(return_value=["qwen2.5:3b"])
         app.state.ollama.loaded_models = AsyncMock(return_value=[{"name": "qwen2.5:3b", "size_vram_bytes": 100}])
         response = client.get("/api/diagnostics")
 
@@ -46,3 +47,5 @@ def test_diagnostics_does_not_claim_cuda_from_device_presence() -> None:
     assert body["stt"]["configured_device"] == app.state.stt.settings.stt_device
     assert body["cuda"]["inference_verified"] is False
     assert body["ollama_loaded_models"][0]["name"] == "qwen2.5:3b"
+    assert set(body["languages"]) == {"en", "hi"}
+    assert "system" in body and "checks" in body

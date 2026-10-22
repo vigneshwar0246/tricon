@@ -8,8 +8,9 @@ from pathlib import Path
 from time import perf_counter
 from typing import Any, AsyncIterator
 
-from app.services.llm import OllamaClient, OllamaResponseError, OllamaUnavailableError, ollama_client
+from app.services.llm import OllamaClient, OllamaResponseError, ollama_client
 from app.services.commands import Command, route_command
+from app.services.diagnostics import collect_diagnostics, status_summary
 from app.services.session_manager import SessionManager, session_manager
 from app.services.stt import SpeechToTextService, TranscriptionError, stt_service
 from app.services.tts import TextToSpeechService, tts_service
@@ -21,11 +22,10 @@ VOICE_SYSTEM_PROMPT = (
     "Give more detail only when the user asks for it. If the request is unclear, ask one concise clarifying question."
 )
 
-LANGUAGE_NAMES = {"en": "English", "hi": "Hindi", "ta": "Tamil"}
+LANGUAGE_NAMES = {"en": "English", "hi": "Hindi"}
 LANGUAGE_SCRIPT_RULES = {
     "en": "Use English in the Latin script.",
     "hi": "Use Hindi in Devanagari script only. Never answer in Urdu or Perso-Arabic script.",
-    "ta": "Use Tamil in Tamil script only.",
 }
 
 
@@ -47,7 +47,7 @@ class PipelineResult:
 class ChatResult:
     session_id: str
     response: str
-    metrics: dict[str, float]
+    metrics: dict[str, float | None]
     created_at: datetime
 
 
@@ -66,6 +66,12 @@ class VoicePipeline:
         self.tts = tts or tts_service
         self.voice_num_predict = voice_num_predict
 
+    async def _resolve_command(self, command: Command) -> Command:
+        if command.action != "system_status":
+            return command
+        report = await collect_diagnostics(llm=self.llm, stt=self.stt, tts=self.tts, verify_inference=True)
+        return Command(status_summary(report), command.action)
+
     async def chat(self, message: str, session_id: str | None = None, language: str | None = None) -> ChatResult:
         started = perf_counter()
         async with self.sessions.conversation(session_id) as session:
@@ -79,12 +85,16 @@ class VoicePipeline:
                     f"If you are unsure, say you do not know instead of inventing a fact. Reply in {LANGUAGE_NAMES[session.language]}. "
                     f"{LANGUAGE_SCRIPT_RULES[session.language]} Do not switch languages.",
                 })
-            messages.append({"role": "user", "content": message})
-            response_text, metadata = await self.llm.chat(messages)
-            llm_ms = round((metadata.get("total_duration", 0) or 0) / 1_000_000, 2)
-            # Some Ollama-compatible servers omit timing fields. Measure the client call in that case.
-            if llm_ms <= 0:
-                llm_ms = round((perf_counter() - started) * 1000, 2)
+            command = route_command(message, next((item.content for item in reversed(session.messages) if item.role == "assistant"), None))
+            if command:
+                response_text = (await self._resolve_command(command)).response
+                llm_ms = None
+            else:
+                messages.append({"role": "user", "content": message})
+                response_text, metadata = await self.llm.chat(messages)
+                llm_ms = round((metadata.get("total_duration", 0) or 0) / 1_000_000, 2)
+                if llm_ms <= 0:
+                    llm_ms = round((perf_counter() - started) * 1000, 2)
             self.sessions.add_exchange(session, message, response_text)
         return ChatResult(
             session_id=session.session_id,
@@ -105,28 +115,18 @@ class VoicePipeline:
             response_language = language or detected_language or session.language or "en"
             if response_language not in LANGUAGE_NAMES:
                 raise TranscriptionError(
-                    "The detected language is not supported for voice output. Select English, Hindi, or Tamil and try again."
+                    "The detected language is not supported for voice output. Select English or Hindi and try again."
                 )
             if language is None and language_confidence is not None and language_confidence < self.stt.settings.stt_language_confidence_threshold:
                 raise TranscriptionError(
-                    f"Language detection was uncertain ({language_confidence:.0%}). Select English, Hindi, or Tamil and try again."
+                    f"Language detection was uncertain ({language_confidence:.0%}). Select English or Hindi and try again."
                 )
             session.language = response_language
             speech_available = not hasattr(self.tts, "available_for") or self.tts.available_for(response_language)
             last_response = next((item.content for item in reversed(session.messages) if item.role == "assistant"), None)
-            if transcript.lower().strip(" ?.!") in {"system status", "assistant status", "check status", "are you working"}:
-                try:
-                    llm_ready = await self.llm.model_available()
-                except (OllamaUnavailableError, OllamaResponseError):
-                    llm_ready = False
-                command = Command(
-                    f"Backend is responding. Ollama model is {'available' if llm_ready else 'unavailable'}. "
-                    f"Speech recognition is {'available' if self.stt.available else 'unavailable'}. "
-                    f"Speech output is {'available' if self.tts.available else 'unavailable'}. "
-                    "Microphone status is shown in the browser."
-                )
-            else:
-                command = route_command(transcript, last_response)
+            command = route_command(transcript, last_response)
+            if command:
+                command = await self._resolve_command(command)
             if command:
                 response_text = command.response
                 llm_ms = None
@@ -205,10 +205,10 @@ class VoicePipeline:
             confidence = float(probability) if isinstance(probability, (int, float)) else None
             response_language = language or detected or session.language or "en"
             if response_language not in LANGUAGE_NAMES:
-                raise TranscriptionError("Select English, Hindi, or Tamil; the detected language is not supported.")
+                raise TranscriptionError("Select English or Hindi; the detected language is not supported.")
             if language is None and confidence is not None and confidence < self.stt.settings.stt_language_confidence_threshold:
                 raise TranscriptionError(
-                    f"Language detection was uncertain ({confidence:.0%}). Select English, Hindi, or Tamil and try again."
+                    f"Language detection was uncertain ({confidence:.0%}). Select English or Hindi and try again."
                 )
             session.language = response_language
             speech_available = self.tts.available_for(response_language)
@@ -220,6 +220,7 @@ class VoicePipeline:
             last_response = next((item.content for item in reversed(session.messages) if item.role == "assistant"), None)
             command = route_command(transcript, last_response)
             if command:
+                command = await self._resolve_command(command)
                 response_text = command.response
                 audio_path_out = None
                 tts_ms = None

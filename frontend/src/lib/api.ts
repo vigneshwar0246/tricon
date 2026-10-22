@@ -175,11 +175,20 @@ export async function getHealth(signal?: AbortSignal): Promise<SystemHealth> {
 }
 
 export interface RuntimeDiagnostics {
-  stt: { configured_device: string; last_successful_device: string | null };
+  timestamp: string;
+  checks: Record<string, { status: "PASS" | "FAIL" | "WARNING" | "UNKNOWN" | "NOT CONFIGURED"; detail: string; suggestion?: string }>;
+  system: {
+    cpu: string; logical_cpu_count: number | null; ram_total_bytes: number | null; ram_available_bytes: number | null;
+    disk_total_bytes: number; disk_free_bytes: number; python: string; platform: string;
+    gpu: { status: string; detail: string; devices: { name: string; memory_total_mb: number; memory_free_mb: number; driver: string }[] };
+  };
+  stt: { configured_device: string; active_device: string; last_successful_device: string | null };
   cuda: { device_count: number; cublas12_found: boolean; inference_verified: boolean; detail: string };
+  languages: Record<string, { stt: boolean; llm: boolean; tts: boolean }>;
   ollama_loaded_models: { name: string; size_vram_bytes: number }[];
 }
 
-export async function getDiagnostics(): Promise<RuntimeDiagnostics> {
-  return await parseResponse(await fetch(`${API_BASE}/api/diagnostics`)) as unknown as RuntimeDiagnostics;
+export async function getDiagnostics(verifyInference = false): Promise<RuntimeDiagnostics> {
+  const suffix = verifyInference ? "?verify_inference=true" : "";
+  return await parseResponse(await fetch(`${API_BASE}/api/diagnostics${suffix}`)) as unknown as RuntimeDiagnostics;
 }

@@ -7,7 +7,7 @@ A local-first voice assistant internship project. React/TypeScript provides the 
 - Text chat uses the local Ollama HTTP API (default model `qwen2.5:3b`) and bounded in-memory conversation sessions.
 - The voice endpoint runs Faster-Whisper → Ollama → Piper when the local speech models are explicitly installed.
 - Browser recording, transcript/answer display, ordered chunked-WAV playback, connection state, and measured stage timings are integrated in the frontend.
-- Three dedicated English/Hindi/Tamil buttons persist the selected language in the browser and session. The interface remains English. English and Hindi have local speech input/output; Tamil input and Tamil-script text replies work, while Tamil speech output remains unavailable until a compatible local voice is configured.
+- Dedicated English and Hindi buttons persist the selected language in the browser and session. Both languages use local speech input, local Qwen responses, and their own configured Piper voice; no cross-language voice fallback is used.
 - The incremental `/api/voice/stream` path streams Ollama tokens and synthesizes complete sentence/phrase chunks with Piper. Piper itself is not native-streaming. Optional hands-free barge-in stops playback, aborts the stale request, and captures the new turn.
 - Real local Qwen text inference and a full Faster-Whisper → Ollama → Piper voice request were verified. The browser also has optional clap-activated hands-free capture while its page remains open; microphone and speaker hardware still need an interactive check. See [benchmark results](docs/benchmark-results.md).
 - The custom “Carrot” wake word is **not active**: no trained, validated Carrot detector model is installed or integrated. The interface says so rather than reporting a false wake-word status.
@@ -51,15 +51,15 @@ Copy-Item .env.example .env
 
 The frontend uses the Vite `/api` proxy by default. Set `VITE_API_BASE_URL` in `frontend/.env` only if FastAPI is hosted at a different origin. Vite variables are public client-side values; never place secrets there.
 
-For Hindi/Tamil speech output, configure the corresponding model/config paths with verified local voices. The active development installation already has Hindi Pratham configured and verified. The app never substitutes the English voice or a cloud service. Readiness for each stage/language is returned by `/api/health`.
+For Hindi speech output, configure its model/config paths with a verified local voice. The active development installation uses Hindi Pratham. The app never substitutes the English voice or a cloud service. Readiness for each stage/language is returned by `/api/health`.
 
-Piper 1.8.0 currently lists Hindi voices but no Tamil voice. To reproduce the local Hindi Pratham installation, run this from `backend/`, configure its two paths in `.env`, and restart FastAPI:
+To reproduce the local Hindi Pratham installation, run this from `backend/`, configure its two paths in `.env`, and restart FastAPI:
 
 ```powershell
 python -m piper.download_voices hi_IN-pratham-medium --download-dir models\piper
 ```
 
-Review the downloaded voice's model card/license and verify Hindi synthesis before marking it ready on another machine. Tamil voice output remains blocked; do not configure an invented filename or use the English voice.
+Review the downloaded voice's model card/license and verify Hindi synthesis before marking it ready on another machine.
 
 ## Run (three PowerShell terminals)
 

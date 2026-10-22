@@ -47,8 +47,6 @@ class Settings(BaseSettings):
     tts_config_path: Path | None = None
     tts_hi_model_path: Path | None = None
     tts_hi_config_path: Path | None = None
-    tts_ta_model_path: Path | None = None
-    tts_ta_config_path: Path | None = None
     audio_output_dir: Path = BACKEND_DIR / "generated_audio"
     tts_use_cuda: bool = False
 
@@ -59,7 +57,7 @@ class Settings(BaseSettings):
 
     @field_validator(
         "stt_model_path", "stt_multilingual_model_path", "tts_model_path", "audio_output_dir", "tts_config_path",
-        "tts_hi_model_path", "tts_hi_config_path", "tts_ta_model_path", "tts_ta_config_path",
+        "tts_hi_model_path", "tts_hi_config_path",
         mode="before",
     )
     @classmethod

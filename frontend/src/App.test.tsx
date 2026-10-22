@@ -26,19 +26,18 @@ describe("AI Voice Assistant", () => {
     const user = userEvent.setup();
     render(<MemoryRouter initialEntries={["/settings"]}><App /></MemoryRouter>);
     const language = screen.getByRole("combobox", { name: "Transcription language" });
-    await user.selectOptions(language, "ta");
-    expect(language).toHaveValue("ta");
+    await user.selectOptions(language, "hi");
+    expect(language).toHaveValue("hi");
   });
 
-  it("provides dedicated English, Hindi, and Tamil buttons and persists the choice", async () => {
+  it("provides dedicated English and Hindi buttons and persists the choice", async () => {
     const user = userEvent.setup();
     render(<MemoryRouter><App /></MemoryRouter>);
     const english = screen.getByRole("button", { name: "Use English" });
     const hindi = screen.getByRole("button", { name: "Use Hindi" });
-    const tamil = screen.getByRole("button", { name: "Use Tamil" });
     expect(english).toHaveAttribute("aria-pressed", "true");
     expect(hindi).toHaveAttribute("aria-pressed", "false");
-    expect(tamil).toHaveAttribute("aria-pressed", "false");
+    expect(screen.queryByRole("button", { name: "Use Tamil" })).not.toBeInTheDocument();
     await user.click(hindi);
     expect(hindi).toHaveAttribute("aria-pressed", "true");
     expect(localStorage.getItem("trikon-language")).toBe("hi");

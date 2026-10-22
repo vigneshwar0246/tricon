@@ -40,7 +40,7 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
   const [metrics, setMetrics] = useState<Metrics>({});
   const [language, setLanguageState] = useState(() => {
     const saved = localStorage.getItem("trikon-language");
-    return saved === "hi" || saved === "ta" ? saved : "en";
+    return saved === "hi" ? saved : "en";
   });
   const [health, setHealth] = useState<SystemHealth>(defaultHealth);
   const [healthLoading, setHealthLoading] = useState(false);

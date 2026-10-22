@@ -60,7 +60,7 @@ async def voice(
     request: Request,
     audio: UploadFile = File(...),
     session_id: str | None = Form(default=None, max_length=128),
-    language: str | None = Form(default=None, pattern="^(en|hi|ta)$"),
+    language: str | None = Form(default=None, pattern="^(en|hi)$"),
 ) -> VoiceResponse:
     settings = get_settings()
     if audio.content_type and audio.content_type.split(";", 1)[0].lower() not in ALLOWED_CONTENT_TYPES:
@@ -106,7 +106,7 @@ async def voice_stream(
     request: Request,
     audio: UploadFile = File(...),
     session_id: str | None = Form(default=None, max_length=128),
-    language: str | None = Form(default=None, pattern="^(en|hi|ta)$"),
+    language: str | None = Form(default=None, pattern="^(en|hi)$"),
 ) -> StreamingResponse:
     """NDJSON stream: transcript, text deltas, ordered chunked-Piper audio, then metrics."""
     settings = get_settings()

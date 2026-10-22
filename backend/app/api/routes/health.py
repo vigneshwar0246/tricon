@@ -1,66 +1,18 @@
 """Read-only health and local model availability checks."""
 
-import ctypes
-import sys
-
 from fastapi import APIRouter, Request
 
-from app.core.cuda import configure_cuda_dll_directories
 from app.core.config import get_settings
 from app.schemas.chat import HealthResponse, HealthService
+from app.services.diagnostics import collect_diagnostics
 from app.services.llm import OllamaResponseError, OllamaUnavailableError
 
 router = APIRouter(tags=["health"])
 
 
 @router.get("/diagnostics")
-async def diagnostics(request: Request) -> dict[str, object]:
-    """Report configured devices and observed runtime facts, not assumed GPU acceleration."""
-    configure_cuda_dll_directories()
-    import ctranslate2
-
-    stt = request.app.state.stt
-    try:
-        cuda_devices = ctranslate2.get_cuda_device_count()
-    except RuntimeError:
-        cuda_devices = 0
-    cublas_found = False
-    cudnn_found = False
-    if sys.platform == "win32":
-        try:
-            ctypes.WinDLL("cublas64_12.dll")
-            cublas_found = True
-        except OSError:
-            pass
-        try:
-            ctypes.WinDLL("cudnn64_9.dll")
-            cudnn_found = True
-        except OSError:
-            pass
-    try:
-        loaded_models = await request.app.state.ollama.loaded_models()
-    except OllamaUnavailableError:
-        loaded_models = []
-    missing_libraries = [name for name, found in (("cuBLAS 12", cublas_found), ("cuDNN 9", cudnn_found)) if not found]
-    return {
-        "stt": {
-            "configured_device": stt.settings.stt_device,
-            "active_device": stt.active_device,
-            "compute_type": stt.settings.stt_compute_type,
-            "active_compute_type": stt.active_compute_type,
-            "last_successful_device": stt.last_successful_device,
-            "fallback_reason": stt.fallback_reason,
-        },
-        "cuda": {
-            "device_count": cuda_devices,
-            "cublas12_found": cublas_found,
-            "cudnn9_found": cudnn_found,
-            "inference_verified": stt.last_successful_device == "cuda",
-            "detail": f"CUDA inference is not verified; {', '.join(missing_libraries)} is unavailable. STT remains on CPU."
-            if sys.platform == "win32" and missing_libraries else "CUDA inference is verified only after a successful STT request using the CUDA device.",
-        },
-        "ollama_loaded_models": loaded_models,
-    }
+async def diagnostics(request: Request, verify_inference: bool = False) -> dict[str, object]:
+    return await collect_diagnostics(request, verify_inference=verify_inference)
 
 
 @router.get("/health", response_model=HealthResponse)
@@ -109,6 +61,6 @@ async def health(request: Request) -> HealthResponse:
         },
         language_support={
             language: {"stt": stt.available, "llm": model_installed, "tts": tts.available_for(language)}
-            for language in ("en", "hi", "ta")
+            for language in ("en", "hi")
         },
     )

@@ -32,12 +32,12 @@ describe("local API client", () => {
     }), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
 
-    const result = await sendVoice(new Blob(["audio"], { type: "audio/webm;codecs=opus" }), "session-1", "ta");
+    const result = await sendVoice(new Blob(["audio"], { type: "audio/webm;codecs=opus" }), "session-1", "hi");
     expect(result).toMatchObject({ transcript: "hello", content: "spoken answer", sessionId: "session-2", audioUrl: expect.stringContaining("/api/audio/reply.wav") });
     const form = fetchMock.mock.calls[0][1]?.body as FormData;
     expect((form.get("audio") as File).name).toBe("voice.webm");
     expect(form.get("session_id")).toBe("session-1");
-    expect(form.get("language")).toBe("ta");
+    expect(form.get("language")).toBe("hi");
   });
 
   it("does not invent a transcript or audio when the voice API omits them", async () => {

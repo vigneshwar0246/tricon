@@ -4,7 +4,6 @@ import { useVoice } from "../context/VoiceContext";
 const languages = [
   { code: "en", label: "English", native: "English" },
   { code: "hi", label: "Hindi", native: "हिन्दी" },
-  { code: "ta", label: "Tamil", native: "தமிழ்" },
 ] as const;
 
 export function LanguageSwitcher() {
