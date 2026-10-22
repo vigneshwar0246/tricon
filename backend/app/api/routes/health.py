@@ -5,6 +5,7 @@ import sys
 
 from fastapi import APIRouter, Request
 
+from app.core.cuda import configure_cuda_dll_directories
 from app.core.config import get_settings
 from app.schemas.chat import HealthResponse, HealthService
 from app.services.llm import OllamaResponseError, OllamaUnavailableError
@@ -15,6 +16,7 @@ router = APIRouter(tags=["health"])
 @router.get("/diagnostics")
 async def diagnostics(request: Request) -> dict[str, object]:
     """Report configured devices and observed runtime facts, not assumed GPU acceleration."""
+    configure_cuda_dll_directories()
     import ctranslate2
 
     stt = request.app.state.stt

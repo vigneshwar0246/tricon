@@ -6,6 +6,7 @@ from importlib.util import find_spec
 from pathlib import Path
 from typing import Any
 
+from app.core.cuda import configure_cuda_dll_directories
 from app.core.config import Settings, get_settings
 
 logger = logging.getLogger(__name__)
@@ -92,6 +93,8 @@ class SpeechToTextService:
         return self._language_models[language]
 
     def _load_model(self, device: str, compute_type: str) -> Any:
+        if device.lower() == "cuda":
+            configure_cuda_dll_directories()
         try:
             from faster_whisper import WhisperModel
         except ImportError as exc:

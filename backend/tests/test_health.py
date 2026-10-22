@@ -43,6 +43,6 @@ def test_diagnostics_does_not_claim_cuda_from_device_presence() -> None:
 
     assert response.status_code == 200
     body = response.json()
-    assert body["stt"]["configured_device"] == "cpu"
+    assert body["stt"]["configured_device"] == app.state.stt.settings.stt_device
     assert body["cuda"]["inference_verified"] is False
     assert body["ollama_loaded_models"][0]["name"] == "qwen2.5:3b"
