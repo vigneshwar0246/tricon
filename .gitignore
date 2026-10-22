@@ -87,7 +87,10 @@ frontend/.env.*
 models/
 model_weights/
 checkpoints/
-artifacts/
+artifacts/*
+!artifacts/demo/
+artifacts/demo/*
+!artifacts/demo/voice-ai-demo-cut.mp4
 *.safetensors
 *.gguf
 *.onnx

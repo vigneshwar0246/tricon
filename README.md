@@ -1,29 +1,113 @@
-# AI Voice Assistant
+<div align="center">
 
-A local-first voice assistant internship project. React/TypeScript provides the dashboard; FastAPI orchestrates local speech recognition, Ollama chat, and local speech synthesis. The app does not use paid hosted inference APIs.
+![Trikon Voice AI — Your voice. Your models. Your machine.](docs/assets/hero.svg)
 
-## Current implementation status
+# Trikon Voice AI
 
-- Text chat uses the local Ollama HTTP API (default model `qwen2.5:3b`) and bounded in-memory conversation sessions.
-- The voice endpoint runs Faster-Whisper → Ollama → Piper when the local speech models are explicitly installed.
-- Browser recording, transcript/answer display, ordered chunked-WAV playback, connection state, and measured stage timings are integrated in the frontend.
-- Dedicated English and Hindi buttons persist the selected language in the browser and session. Both languages use local speech input, local Qwen responses, and their own configured Piper voice; no cross-language voice fallback is used.
-- The incremental `/api/voice/stream` path streams Ollama tokens and synthesizes complete sentence/phrase chunks with Piper. Piper itself is not native-streaming. Optional hands-free barge-in stops playback, aborts the stale request, and captures the new turn.
-- Real local Qwen text inference and a full Faster-Whisper → Ollama → Piper voice request were verified. The browser also has optional clap-activated hands-free capture while its page remains open; microphone and speaker hardware still need an interactive check. See [benchmark results](docs/benchmark-results.md).
-- The custom “Carrot” wake word is **not active**: no trained, validated Carrot detector model is installed or integrated. The interface says so rather than reporting a false wake-word status.
+**A local-first voice assistant that listens, thinks, and speaks on your machine.**
 
-## Prerequisites
+English & Hindi · Streaming responses · Hands-free conversations · Local inference
 
-- Windows 11, Python 3.11, Node.js with npm, and Ollama.
-- Ollama model `qwen2.5:3b` (or set `OLLAMA_MODEL=gemma2:2b`).
-- For voice input/output: a local Faster-Whisper model directory and a Piper voice `.onnx` plus matching `.onnx.json` file.
+![React 19](https://img.shields.io/badge/React_19-101827?style=for-the-badge&logo=react&logoColor=61DAFB)
+![TypeScript](https://img.shields.io/badge/TypeScript-101827?style=for-the-badge&logo=typescript&logoColor=3178C6)
+![FastAPI](https://img.shields.io/badge/FastAPI-101827?style=for-the-badge&logo=fastapi&logoColor=009688)
+![Ollama](https://img.shields.io/badge/Ollama-101827?style=for-the-badge&logo=ollama&logoColor=white)
+![Python](https://img.shields.io/badge/Python-101827?style=for-the-badge&logo=python&logoColor=FFD43B)
 
-## Configure and install
+[Watch the demo](#-demo) · [Explore features](#-features) · [Get started](#-quick-start) · [Architecture](#-architecture) · [API](#-api-reference)
 
-From PowerShell at the repository root:
+</div>
+
+---
+
+## 🎬 Demo
+
+[![Animated preview of the actual Trikon Voice AI demo. Click to open the full MP4.](docs/assets/demo-preview.gif)](artifacts/demo/voice-ai-demo-cut.mp4)
+
+<div align="center">
+
+**[▶ Open the full demo with audio](artifacts/demo/voice-ai-demo-cut.mp4)**<br>
+2 min 56 sec · MP4 · H.264 video + AAC audio · approximately 6.2 MB
+
+</div>
+
+The animation above is a silent preview sampled from the actual recording. The linked MP4 contains the full demo and audio. For a local player with play/pause, seeking, volume, and fullscreen, open [docs/demo.html](docs/demo.html) in your browser after cloning the repository. GitHub displays HTML files as source; this player is intended for local use.
+
+<details>
+<summary><strong>Enable a playable video directly inside this README on GitHub</strong></summary>
+
+GitHub's inline attachment player needs a GitHub-hosted video attachment URL. A relative repository MP4 link is a fallback, not a guaranteed inline player.
+
+1. Open this README in GitHub's web editor.
+2. Drag `artifacts/demo/voice-ai-demo-cut.mp4` into the Demo section and wait for the upload to finish.
+3. Keep the generated `https://github.com/user-attachments/assets/...` URL on its own line, preview the README, and save the change.
+
+The supplied video is below GitHub's 10 MB free-plan video attachment limit. No conversion is needed. See [GitHub's attachment documentation](https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting/attaching-files) and the [README video discussion](https://github.com/orgs/community/discussions/19403).
+
+</details>
+
+## ✨ Features
+
+| Capability | What the project does |
+|:---|:---|
+| 🎙️ Voice-to-voice chat | Records browser audio, transcribes locally, generates an answer, and plays synthesized speech. |
+| 💬 Text conversations | Talks to a local Ollama model with bounded, session-aware conversation history. |
+| 🌐 English & Hindi | Dedicated language controls persist the choice in the browser and session; each language uses its configured Piper voice. |
+| ⚡ Incremental responses | Streams Ollama text deltas and plays ordered WAV chunks synthesized at sentence or phrase boundaries. |
+| 👐 Hands-free mode | Listens for speech, submits on a pause, speaks the answer, and resumes listening while the page remains open. |
+| ⏸️ Interruption controls | Optional barge-in interrupts playback and captures a new turn; mute, stop speech, and stop listening are available. |
+| 🧭 Local voice commands | Handles time, status, repeat, clear conversation, and stop listening through explicit command routing. |
+| 📊 Measured performance | Shows STT, LLM, TTS, and total timings alongside service connection and readiness information. |
+| 🖥️ Runtime diagnostics | Reports model readiness, configured and last successful STT device, CUDA checks, hardware, and Ollama VRAM information. |
+| 🎨 React interface | Includes an introduction, dashboard, conversations, settings, and about views, with a voice orb and motion effects. |
+
+**Inference stays local** when using the default local service configuration. The runtime uses Faster-Whisper, Ollama, and Piper rather than paid hosted inference APIs. Initial package/model installation requires downloads; startup, health checks, and tests do not download models automatically.
+
+> [!NOTE]
+> The custom **“Carrot” wake word is not active**. Training/evaluation scaffolding exists, but a validated detector is not integrated. Current hands-free mode uses speech activity and silence detection.
+
+## 🧠 Architecture
+
+```mermaid
+flowchart LR
+    U[Microphone] --> UI[React + TypeScript]
+    UI -->|Recorded audio| API[FastAPI]
+    API --> STT[Faster-Whisper\nLocal transcription]
+    STT --> CMD{Recognized command?}
+    CMD -->|Yes| LOCAL[Allowlisted local handler]
+    CMD -->|No| LLM[Ollama / Qwen\nLocal generation]
+    TXT[Text message] --> API
+    API -->|Text chat| LLM
+    MEM[(Bounded session memory)] <--> LLM
+    LLM --> TTS[Piper\nLanguage-specific voice]
+    LOCAL --> TTS
+    TTS -->|WAV or ordered WAV chunks| PLAY[Browser playback]
+    LLM -->|Text deltas| UI
+    PLAY --> U
+```
+
+The standard voice endpoint returns the transcript, answer, audio URL, and timings together. The streaming endpoint emits newline-delimited JSON events as text and speech chunks become available. **Piper synthesis is chunked, not native audio streaming.** Successful turns share in-memory session history; incomplete streamed assistant turns are not committed.
+
+| Layer | Technology |
+|:---|:---|
+| Interface | React 19, TypeScript, Vite 7, React Router 7 |
+| Styling & motion | Tailwind CSS 4, Framer Motion, Lucide icons |
+| API & validation | FastAPI, Uvicorn, Pydantic, HTTPX |
+| Speech recognition | Faster-Whisper 1.2.1, CTranslate2, PyAV 16.0.1 |
+| Language model | Ollama HTTP API; `qwen2.5:3b` by default |
+| Speech synthesis | Piper 1.8.0; English Norman and separately configured Hindi Pratham |
+| Verification | pytest, Vitest, Testing Library, ESLint, TypeScript build; Playwright demo tooling |
+
+## 🚀 Quick start
+
+The documented development workflow uses **Windows 11 and PowerShell**. Install **Python 3.11**, **Node.js 22.12+ with npm**, and **Ollama**. CPU speech recognition is supported; GPU use depends on compatible runtime libraries. Model storage and memory requirements depend on your chosen models.
+
+### 1. Clone and install the backend
 
 ```powershell
-cd D:\Trikon-Voice-AI\backend
+git clone https://github.com/vigneshwar0246/tricon.git
+cd tricon
+cd backend
 py -3.11 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
@@ -31,96 +115,279 @@ python -m pip install -r requirements.txt
 Copy-Item .env.example .env
 ```
 
-Install/run the local chat model (run `ollama serve` in a separate terminal if Ollama is not already serving):
+If you already have the project, start in its `backend` directory. Copy environment examples only for a fresh setup; preserve existing local configuration.
+
+### 2. Prepare the local language model
+
+Start Ollama if its desktop service is not already running:
 
 ```powershell
 ollama serve
-ollama list
-ollama pull qwen2.5:3b
 ```
 
-Voice models are optional for text chat and must be downloaded deliberately. See [architecture and model setup](docs/architecture.md) for exact commands and voice licensing notes. Backend startup and tests never download models.
-
-Install the existing frontend dependencies:
+In another terminal:
 
 ```powershell
-cd D:\Trikon-Voice-AI\frontend
+ollama pull qwen2.5:3b
+ollama list
+```
+
+Text chat needs Ollama and the selected model. Speech additionally needs the following model downloads.
+
+### 3. Install speech models
+
+Run from `backend/` with the virtual environment active:
+
+```powershell
+python -m pip install huggingface-hub
+hf download Systran/faster-whisper-base --local-dir models/faster-whisper-base
+python -m piper.download_voices en_US-norman-medium --download-dir models/piper
+```
+
+<details>
+<summary><strong>Hindi speech setup</strong></summary>
+
+Download the multilingual recognition model and Hindi voice explicitly:
+
+```powershell
+hf download Systran/faster-whisper-small --local-dir models/faster-whisper-small
+python -m piper.download_voices hi_IN-pratham-medium --download-dir models/piper
+```
+
+Configure `backend/.env`:
+
+```dotenv
+STT_MULTILINGUAL_MODEL_PATH=models/faster-whisper-small
+TTS_HI_MODEL_PATH=models/piper/hi_IN-pratham-medium.onnx
+TTS_HI_CONFIG_PATH=models/piper/hi_IN-pratham-medium.onnx.json
+```
+
+Restart FastAPI, check `/api/health`, and test a Hindi turn. Hindi never silently falls back to the English voice. Review each downloaded model's terms before redistribution.
+
+</details>
+
+### 4. Install the frontend
+
+In a new terminal, from the repository root:
+
+```powershell
+cd frontend
 npm ci
 Copy-Item .env.example .env
 ```
 
-The frontend uses the Vite `/api` proxy by default. Set `VITE_API_BASE_URL` in `frontend/.env` only if FastAPI is hosted at a different origin. Vite variables are public client-side values; never place secrets there.
+### 5. Start the app
 
-For Hindi speech output, configure its model/config paths with a verified local voice. The active development installation uses Hindi Pratham. The app never substitutes the English voice or a cloud service. Readiness for each stage/language is returned by `/api/health`.
+Keep Ollama running, then launch the other two services in separate terminals:
 
-To reproduce the local Hindi Pratham installation, run this from `backend/`, configure its two paths in `.env`, and restart FastAPI:
+| Terminal | Working directory | Command |
+|:---|:---|:---|
+| Backend | `backend/`, virtual environment active | `uvicorn app.main:app --reload --host 127.0.0.1 --port 8000` |
+| Frontend | `frontend/` | `npm run dev` |
+
+**App:** http://localhost:5173 · **API docs:** http://127.0.0.1:8000/docs<br>
+**Health:** http://127.0.0.1:8000/api/health · **Diagnostics:** http://127.0.0.1:8000/api/diagnostics
+
+The frontend uses Vite's `/api` proxy by default. Set `VITE_API_BASE_URL` only when the backend uses a different origin. `VITE_*` values are public browser configuration; never put secrets there.
+
+## 🎙️ Using the assistant
+
+1. Confirm that the backend and required models report ready.
+2. Select **English** or **Hindi**.
+3. Send a text message or record a microphone turn.
+4. Read the transcript and response, listen to playback, and inspect stage timings.
+5. Enable **hands-free** for repeated spoken turns without pressing record each time.
+
+Hands-free mode requires microphone permission and an open page. It detects speech locally and submits a turn after the selected silence interval: **0.6, 0.9, or 1.4 seconds**. Empty captures are discarded after five seconds; a turn is capped at 12 seconds. Use **Mute** to pause listening, **Stop speech** to end playback, and **Stop hands-free** to release the microphone. Optional interruption lets a new spoken turn interrupt an answer.
+
+| Say | Result |
+|:---|:---|
+| “What time is it?” | Answers using the machine's local clock. |
+| “System status” | Checks the assistant's runtime status. |
+| “Repeat that” | Repeats the previous response when available. |
+| “Clear conversation” | Clears the conversation. |
+| “Stop listening” | Stops hands-free listening. |
+
+These explicit commands bypass general LLM answering. Arbitrary shell execution, launching programs, and deleting files are not supported.
+
+## ⚙️ Configuration
+
+Values below reflect the committed example/default configuration, not every developer's private `.env`. Relative model paths resolve from `backend/`.
+
+| Variable | Default / example | Purpose |
+|:---|:---|:---|
+| `OLLAMA_BASE_URL` | `http://127.0.0.1:11434` | Local inference service |
+| `OLLAMA_MODEL` | `qwen2.5:3b` | Chat model; pull separately |
+| `OLLAMA_TIMEOUT_SECONDS` | `120` | Generation timeout |
+| `OLLAMA_TEMPERATURE` | `0.2` | Generation sampling |
+| `OLLAMA_NUM_CTX` | `4096` | Context window |
+| `VOICE_NUM_PREDICT` | `80` | Spoken-response token ceiling |
+| `STT_MODEL_PATH` | `models/faster-whisper-base` | Primary recognition model |
+| `STT_MULTILINGUAL_MODEL_PATH` | `models/faster-whisper-small` in example | Optional Hindi recognition model |
+| `STT_DEVICE` / `STT_COMPUTE_TYPE` | `cpu` / `int8` | Recognition execution settings |
+| `STT_BEAM_SIZE` | `5` | Recognition beam width |
+| `STT_LANGUAGE_CONFIDENCE_THRESHOLD` | `0.55` | Auto-detection confidence gate |
+| `TTS_MODEL_PATH` | `models/piper/en_US-norman-medium.onnx` | English voice |
+| `TTS_CONFIG_PATH` | Model path plus `.json` | Matching voice configuration |
+| `TTS_HI_MODEL_PATH` / `TTS_HI_CONFIG_PATH` | Unset until configured | Hindi voice and configuration |
+| `TTS_USE_CUDA` | `false` | Piper device preference |
+| `AUDIO_MAX_SIZE_MB` / `AUDIO_MAX_DURATION_SECONDS` | `25` / `300` | Upload limits |
+| `AUDIO_OUTPUT_DIR` | `generated_audio` | Temporary playback files |
+| `SESSION_MAX_TURNS` / `SESSION_MAX_COUNT` | `12` / `500` | In-memory history bounds |
+| `LOG_LEVEL` | `INFO` | Backend logging |
+
+See [backend/.env.example](backend/.env.example) and [settings definitions](backend/app/core/config.py) for the complete configuration. CUDA/float16 STT is optional, with CPU/int8 fallback. Use diagnostics to distinguish configured GPU use from a successful GPU transcription; hardware detection alone does not verify inference.
+
+## 🔌 API reference
+
+| Method | Endpoint | Purpose |
+|:---|:---|:---|
+| `GET` | `/api/health` | API, model, and per-language readiness |
+| `GET` | `/api/diagnostics` | Runtime, hardware, CUDA, STT, and Ollama diagnostics |
+| `POST` | `/api/chat` | Text turn with optional session/language |
+| `GET` | `/api/chat/sessions` | List bounded in-memory sessions |
+| `DELETE` | `/api/chat/{session_id}` | Clear a session |
+| `POST` | `/api/voice` | Multipart audio → transcript, answer, audio URL, timings |
+| `POST` | `/api/voice/stream` | NDJSON transcript, text deltas, ordered audio chunks, completion/timings |
+| `GET` | `/api/audio/{filename}` | Retrieve a generated WAV while retained |
+
+<details>
+<summary><strong>Try text and voice requests from PowerShell</strong></summary>
 
 ```powershell
-python -m piper.download_voices hi_IN-pratham-medium --download-dir models\piper
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/api/chat `
+  -ContentType 'application/json' `
+  -Body '{"message":"Explain local AI simply","session_id":"demo-session"}'
 ```
 
-Review the downloaded voice's model card/license and verify Hindi synthesis before marking it ready on another machine.
-
-## Run (three PowerShell terminals)
-
-Terminal 1 (if needed):
+With an existing `sample.wav` in the current directory:
 
 ```powershell
-ollama serve
+curl.exe -X POST http://127.0.0.1:8000/api/voice `
+  -F "audio=@sample.wav;type=audio/wav" `
+  -F "session_id=demo-session" `
+  -F "language=en"
 ```
 
-Terminal 2:
+Voice language overrides accept `en` or `hi`. Omit the override to use session/detection behavior. Inspect the interactive API docs for full request and response schemas.
+
+</details>
+
+## 📊 Recorded performance
+
+The **October 21, 2026** benchmark recorded ten real local voice requests: five short and five long English samples, with no failures. Configuration: Faster-Whisper base **CPU/int8**, Qwen 2.5 3B through Ollama on an **RTX 3050 Laptop GPU**, and Piper Norman **CPU**.
+
+| Input | Warm wall p50 | Warm wall p95 | STT p50 | LLM p50 | TTS p50 |
+|:---|---:|---:|---:|---:|---:|
+| Short · 3.843 s | 4,086.86 ms | 4,813.11 ms | 2,383.66 ms | 790.05 ms | 976.91 ms |
+| Long · 15.569 s | 6,902.12 ms | 7,541.01 ms | 3,202.08 ms | 1,253.89 ms | 2,497.37 ms |
+
+These small-sample results use clean synthesized recordings. They do not establish live microphone latency, noisy-room accuracy, Hindi accuracy, or streaming time-to-first-audio. Separate stage medians need not sum to the wall-clock median.
+
+[Read methodology and limitations](docs/benchmark-results.md) · [Inspect raw measurements](docs/benchmark-2026-10-21.json)
+
+## 🧪 Verification
+
+From `backend/` with the virtual environment active:
 
 ```powershell
-cd D:\Trikon-Voice-AI\backend
-.\.venv\Scripts\Activate.ps1
-uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
-```
-
-Terminal 3:
-
-```powershell
-cd D:\Trikon-Voice-AI\frontend
-npm run dev
-```
-
-Open `http://localhost:5173`. API docs: `http://127.0.0.1:8000/docs`; health: `http://127.0.0.1:8000/api/health`; runtime diagnostics: `http://127.0.0.1:8000/api/diagnostics`.
-
-## Browser hands-free mode
-
-On Home, select **Enable hands-free**, grant browser microphone permission, and leave the page open. By default two claps (about 0.25–0.9 seconds apart) activate command capture. A short tone acknowledges activation. Speak after the tone; capture ends after 0.9 seconds of detected silence, after 12 seconds maximum, or discards an empty command after five seconds. The app transcribes only that captured clip, plays the real generated answer, then rearms. **Mute** stops activation without releasing the microphone; **Stop hands-free** releases the device and cancels a pending browser request. You can adjust clap sensitivity, one/two-clap mode, and silence duration. Use headphones or quiet speakers to reduce feedback. Clap detection is a heuristic and may react to sharp keyboard/impact sounds; test and tune it in your room.
-
-This is page-local behavior, not a system-wide background assistant. A browser can suspend timers/audio when the tab is inactive, and automatic playback may be blocked by browser policy. Browser microphone and speaker behavior has not been physically verified on this machine. Custom “Carrot” requires a separately trained model and a dedicated local detector integration; see [architecture.md](docs/architecture.md).
-Stopping hands-free aborts the browser request and playback immediately; a FastAPI/Ollama request already underway may still finish on the server, so this is not a guaranteed GPU-compute cancellation.
-
-## API outline
-
-- `GET /api/health` — backend, Ollama/model, speech model readiness, configured model names.
-- `GET /api/diagnostics` — configured STT device, last successful STT device, CUDA library check, and Ollama's currently loaded model/VRAM report.
-- `POST /api/chat` — JSON `{ "message": "Hello", "session_id": "optional-id" }`; returns response, session ID, and timing metrics.
-- `GET /api/chat/sessions`, `DELETE /api/chat/{session_id}` — list and delete bounded in-memory sessions.
-- `POST /api/voice` — multipart `audio` plus optional `session_id` and language override (`en`, `hi`, `ta`); returns real transcript, response, playback URL, STT/LLM/TTS/total timing, and an optional allowlisted command action. Exact spoken commands for local time, system status, repeat, clear conversation, and stop listening bypass the LLM; unsupported system actions are rejected.
-- `POST /api/voice/stream` — NDJSON transcript, token delta, ordered Piper audio-chunk, completion, and timing events. Client cancellation prevents an incomplete assistant turn from being committed.
-- `GET /api/audio/{filename}` — serves generated WAV responses until cleanup (files older than one hour and files beyond the newest 100 are pruned on new synthesis).
-
-## Verification
-
-```powershell
-cd D:\Trikon-Voice-AI\backend
 python -m pytest
 python -m compileall -q app tests
-python scripts/benchmark_voice.py scripts/multilingual-manifest.example.json --runs 5 --output benchmark.json
+```
 
-cd D:\Trikon-Voice-AI\frontend
+From `frontend/`:
+
+```powershell
 npm test
 npm run lint
 npm run build
 ```
 
-Automated tests do not need Ollama, speech model files, downloads, or GPU. Manual real-inference acceptance steps are in [demo script](docs/demo-script.md). For limitations and unmeasured performance, see [benchmarks](docs/benchmark-results.md).
+Automated tests use fakes or validate behavior without downloading models, requiring Ollama, or requiring a GPU. For real-inference acceptance, follow the [demo script](docs/demo-script.md).
 
-The latest real English short/long measurements are in [docs/benchmark-2026-10-21.json](docs/benchmark-2026-10-21.json). Interpretation, WER normalization, and limitations are recorded in [docs/benchmark-results.md](docs/benchmark-results.md).
+<details>
+<summary><strong>Run your own voice benchmark</strong></summary>
 
-## Data and limitations
+Prepare actual audio recordings and update a copy of the example manifest with their paths and reference transcripts. With the backend and models running, execute from `backend/`:
 
-Conversation history is held in process memory and resets after a backend restart. Uploaded audio is written to a temporary file and removed after processing; generated response WAVs are retained for playback and pruned after one hour or beyond 100 files on a subsequent synthesis. This development server has no authentication: keep it on localhost/trusted networks. Faster-Whisper uses CUDA/float16 in the local configuration. CUDA 12.4 runtime libraries are loaded from the virtual environment, and `/api/diagnostics` reports GPU STT as verified only after a successful transcription; CPU/int8 remains the automatic fallback.
+```powershell
+python scripts/benchmark_voice.py scripts/multilingual-manifest.example.json --runs 5 --output benchmark.json
+```
+
+The example manifest is a template, not bundled test audio. Record the hardware, language, model settings, warm-up state, and failures alongside your results.
+
+</details>
+
+## 🗂️ Project map
+
+```text
+Trikon-Voice-AI/
+├── frontend/
+│   ├── src/pages/              # Dashboard, conversations, settings, intro, about
+│   ├── src/components/         # Voice orb, controls, status, performance, layout
+│   ├── src/context/            # Shared voice/conversation state
+│   ├── src/hooks/              # Browser hands-free capture
+│   ├── src/lib/                # API client, audio detection, utilities
+│   └── scripts/                # Demo recording tooling
+├── backend/
+│   ├── app/api/routes/         # Chat, voice, streaming, health, audio serving
+│   ├── app/services/           # STT, LLM, TTS, pipeline, sessions, commands
+│   ├── app/core/               # Configuration, CUDA setup, logging
+│   ├── app/schemas/            # Request and response models
+│   ├── tests/                  # Backend verification
+│   ├── scripts/                # Benchmarks and demo speech generation
+│   └── wakeword/               # Training/evaluation scaffolding; not active
+├── docs/                       # Architecture, benchmarks, acceptance guide
+│   ├── assets/                 # README banner, poster, animated preview
+│   └── demo.html               # Local video player
+├── artifacts/demo/
+│   └── voice-ai-demo-cut.mp4   # Full project demo
+└── scripts/                    # Local acceptance and recording helpers
+```
+
+## 🔧 Troubleshooting
+
+| Symptom | Check |
+|:---|:---|
+| Backend unavailable | Start Uvicorn from `backend/`; check port 8000 and the frontend API configuration. |
+| Ollama/model not ready | Run `ollama list`, start the service, and pull the model named in `.env`. |
+| Speech recognition unavailable | Check that the configured model folder includes `model.bin`, `config.json`, and vocabulary files. |
+| English/Hindi voice unavailable | Check the corresponding `.onnx` and matching `.onnx.json` paths; restart the backend after configuration changes. |
+| Microphone blocked | Open on localhost, grant microphone permission, and use a browser supporting MediaRecorder. |
+| No automatic playback | Interact with the page and check browser autoplay permission and output device. |
+| CUDA configured but unverified | Inspect `/api/diagnostics` and perform a real transcription; CPU fallback may be in use. |
+| Old response audio missing | Generate another response; audio retention is temporary. |
+| Hands-free captures unwanted sounds | Adjust the silence interval and use headphones or a quieter environment. |
+
+## 🔒 Data, boundaries & current status
+
+- **Conversation memory:** process-local, bounded, and reset when the backend restarts.
+- **Input audio:** written temporarily for processing and removed afterward.
+- **Output audio:** WAVs older than one hour and files beyond the newest 100 are pruned when another synthesis occurs.
+- **Network exposure:** the development backend has no authentication; keep it on localhost or a trusted network.
+- **Browser behavior:** hands-free is page-local. Background tabs may be suspended, autoplay can be restricted, and microphone/speaker behavior requires an interactive hardware check.
+- **Cancellation:** the browser stops playback and aborts its request; server work already underway may still finish. This does not guarantee immediate GPU compute cancellation.
+- **Language scope:** English and Hindi are implemented. Tamil is not an accepted voice API language.
+- **Wake word:** Carrot training scaffolding is present; an integrated, validated detector remains future work.
+- **Licensing:** this repository currently has no root license file. Dependencies and model/voice assets have their own terms; inspect them before redistribution.
+
+## 📚 Further reading
+
+| Document | Contents |
+|:---|:---|
+| [Architecture & model setup](docs/architecture.md) | Backend flow, installation details, and implementation notes; some historical device/hands-free notes reflect earlier iterations. |
+| [Demo & acceptance guide](docs/demo-script.md) | Manual walkthrough and real-inference checks |
+| [Benchmark report](docs/benchmark-results.md) | Measurements, hardware context, and caveats |
+| [Raw benchmark data](docs/benchmark-2026-10-21.json) | Recorded requests and metrics |
+| [Wake-word work](backend/wakeword/README.md) | Carrot model training/evaluation scaffolding |
+
+---
+
+<div align="center">
+
+**Speak naturally. Keep inference local.**<br>
+Built with React · FastAPI · Faster-Whisper · Ollama · Piper
+
+[Back to top ↑](#trikon-voice-ai)
+
+</div>

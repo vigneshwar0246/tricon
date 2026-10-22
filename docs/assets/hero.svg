@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="420" viewBox="0 0 1280 420" role="img" aria-labelledby="title desc">
+<title id="title">Trikon Voice AI</title><desc id="desc">Your voice. Your models. Your machine. Local speech recognition, intelligence, and synthesis.</desc>
+<defs><linearGradient id="bg" x2="1" y2="1"><stop stop-color="#101827"/><stop offset="1" stop-color="#052e2b"/></linearGradient><linearGradient id="line"><stop stop-color="#5eead4"/><stop offset="1" stop-color="#a3e635"/></linearGradient><radialGradient id="glow"><stop stop-color="#2dd4bf" stop-opacity=".2"/><stop offset="1" stop-color="#2dd4bf" stop-opacity="0"/></radialGradient></defs>
+<rect width="1280" height="420" rx="24" fill="url(#bg)"/><circle cx="1050" cy="210" r="280" fill="url(#glow)"/>
+<g fill="none" stroke="#5eead4" stroke-opacity=".12"><circle cx="1050" cy="210" r="162"/><circle cx="1050" cy="210" r="126"/><circle cx="1050" cy="210" r="90"/><path d="M850 210h400M1050 20v380"/></g>
+<text x="70" y="76" fill="#5eead4" font-family="Segoe UI,Arial,sans-serif" font-size="14" letter-spacing="4">LOCAL INTELLIGENCE / HUMAN CONVERSATION</text>
+<text x="66" y="167" fill="#f0fdfa" font-family="Segoe UI,Arial,sans-serif" font-size="76" font-weight="700" letter-spacing="-3">Trikon Voice AI</text>
+<text x="70" y="220" fill="#cbd5e1" font-family="Segoe UI,Arial,sans-serif" font-size="27">Your voice. Your models. Your machine.</text>
+<text x="70" y="265" fill="#94a3b8" font-family="Segoe UI,Arial,sans-serif" font-size="18">Speak naturally. Think locally. Hear the answer.</text>
+<rect x="70" y="316" width="595" height="44" rx="22" fill="#ffffff" fill-opacity=".06" stroke="#ffffff" stroke-opacity=".12"/>
+<text x="94" y="344" fill="#ccfbf1" font-family="Segoe UI,Arial,sans-serif" font-size="14" letter-spacing="1">FASTER-WHISPER   /   OLLAMA + QWEN   /   PIPER</text>
+<path d="M916 210h20l12-29 14 59 16-93 16 124 17-167 17 204 17-172 17 132 17-86 16 54 14-26h23" fill="none" stroke="url(#line)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
