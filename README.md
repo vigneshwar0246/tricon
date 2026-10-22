@@ -30,6 +30,13 @@ PASTE_YOUR_GITHUB_VIDEO_ATTACHMENT_URL_HERE
 [▶ Download the full demo](artifacts/demo/voice-ai-demo-cut.mp4) · [Open the local browser player](docs/demo.html)
 
 </div>
+## 🎬 Demo
+
+English & Hindi · 2 min 56 sec · Sound on
+
+https://github.com/user-attachments/assets/REPLACE_WITH_YOUR_REAL_VIDEO_ID
+
+[Download the demo MP4](artifacts/demo/voice-ai-demo-cut.mp4)
 
 Watch the demonstration to see Trikon Voice AI handle voice input, local AI responses, and spoken output.
 
