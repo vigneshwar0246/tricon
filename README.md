@@ -19,19 +19,19 @@ English & Hindi · Streaming responses · Hands-free conversations · Local infe
 </div>
 
 ---
-
 ## 🎬 Demo
 
-<video src="artifacts/demo/voice-ai-demo-cut.mp4" poster="docs/assets/demo-poster.jpg" controls playsinline preload="metadata" width="960" aria-label="Trikon Voice AI demo with audio">
-  <a href="artifacts/demo/voice-ai-demo-cut.mp4">Play the Trikon Voice AI demo with audio</a>
-</video>
+PASTE_YOUR_GITHUB_VIDEO_ATTACHMENT_URL_HERE
 
 <div align="center">
 
-**[▶ Open the full demo with audio](artifacts/demo/voice-ai-demo-cut.mp4)**<br>
-2 min 56 sec · MP4 · H.264 video + AAC audio · approximately 6.2 MB
+**2 min 56 sec · MP4 · H.264 video + AAC audio · approximately 6.2 MB**
+
+[▶ Download the full demo](artifacts/demo/voice-ai-demo-cut.mp4) · [Open the local browser player](docs/demo.html)
 
 </div>
+
+Watch the demonstration to see Trikon Voice AI handle voice input, local AI responses, and spoken output.
 
 Press **Play** to watch the full demo with its original audio. The embedded player provides playback, seeking, volume, and fullscreen controls in Markdown viewers that support HTML video. If your viewer blocks embedded media, use the video link above or open [the local browser player](docs/demo.html).
 
