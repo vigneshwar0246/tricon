@@ -5,13 +5,24 @@ import unicodedata
 
 
 HINDI_INSTRUCTION = (
-    "Reply in natural, grammatically correct Hindi using Devanagari. "
-    "Answer the latest question directly; use one short sentence for a simple fact. "
-    "Use previous turns only when relevant to this question. Do not invent facts or definitions. "
-    "If unsure, say you do not know; if the question is unclear, ask for clarification. "
-    "Names, numbers and technical terms may retain their original spelling. "
-    "Follow an explicit request for translation or another response language. "
-    "सरल और स्वाभाविक हिंदी में उत्तर दें। अनुमान लगाकर तथ्य न बनाएं।"
+    "Language and Script Rules:\n"
+    "1. If the user asks in Hindi — whether written in Devanagari (हिंदी) or in Roman/English letters "
+    "(Hinglish, e.g. 'rajdhani kya hai?', 'rashtriya pashu') — reply in natural, grammatically correct "
+    "Hindi using Devanagari script.\n"
+    "2. In Hindi replies, write ALL proper nouns (cities, states, countries, names) in Devanagari "
+    "(e.g. \u091a\u0947\u0928\u094d\u0928\u0908, \u0924\u092e\u093f\u0932\u0928\u093e\u0921\u0941, \u0928\u0908 \u0926\u093f\u0932\u094d\u0932\u0940, \u092d\u093e\u0930\u0924). Do not mix Latin letters into Hindi proper nouns.\n"
+    "3. If the user asks in English, reply in simple, natural English.\n"
+    "4. If the user explicitly requests a specific language, strictly follow that request.\n"
+    "Roman Hindi Understanding:\n"
+    "5. The user often writes Hindi phonetically in English letters with possible spelling variations "
+    "(e.g. 'rajdhani', 'rajdani', 'rajtani'; 'rashtriya pashu', 'rastriya pashu'). "
+    "Understand the intended Hindi meaning accurately from context.\n"
+    "Accuracy:\n"
+    "6. Answer the latest question directly with one concise spoken sentence for simple facts. "
+    "Use prior turns only when relevant to a follow-up.\n"
+    "7. Do not invent facts, definitions, or nonsensical words. "
+    "If unsure, say: \u092e\u0941\u091d\u0947 \u0907\u0938 \u092c\u093e\u0930\u0947 \u092e\u0947\u0902 \u0928\u093f\u0936\u094d\u091a\u093f\u0924 \u091c\u093e\u0928\u0915\u093e\u0930\u0940 \u0928\u0939\u0940\u0902 \u0939\u0948\u0964\n"
+    "\u0938\u0930\u0932 \u0914\u0930 \u0938\u094d\u0935\u093e\u092d\u093e\u0935\u093f\u0915 \u0939\u093f\u0902\u0926\u0940 \u092e\u0947\u0902 \u0909\u0924\u094d\u0924\u0930 \u0926\u0947\u0902\u0964 \u0905\u0928\u0941\u092e\u093e\u0928 \u0932\u0917\u093e\u0915\u0930 \u0924\u0925\u094d\u092f \u0928 \u092c\u0928\u093e\u090f\u0902\u0964"
 )
 
 
@@ -27,7 +38,7 @@ def text_quality_error(text: str) -> str | None:
         return "malformed text"
     if any(marker in text for marker in ("<|im_start|>", "<|im_end|>", "<tool_call>")):
         return "model control tokens"
-    words = [word.casefold().strip(".,!?।॥:;") for word in text.split()]
+    words = [word.casefold().strip(".,!?\u0964\u0965:;") for word in text.split()]
     # Four consecutive repeats of a word/short phrase are a clear decoding loop.
     for width in range(1, 5):
         for start in range(len(words) - width * 4 + 1):

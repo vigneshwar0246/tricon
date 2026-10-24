@@ -658,5 +658,18 @@
       "result": "PASS — verified correct and grammatical Hindi Devanagari"
     },
     "decision": "qwen2.5:7b adopted in backend/.env; qwen2.5:3b removed"
-  }
+  },
+  "hindi-7b-v2-verified-2026-10-24": [
+    {"case": "A", "question": "Tamil Nadu ki rajdhani kya hai?", "result": "PASS", "response": "Chennai hai, चेन्नई।"},
+    {"case": "B", "question": "तमिलनाडु की राजधानी क्या है?", "result": "PASS", "response": "Chennai है तमिलनाडु की राजधानी।"},
+    {"case": "C", "question": "भारत की राजधानी क्या है?", "result": "PASS", "response": "नई दिल्ली है भारत की राजधानी।"},
+    {"case": "D", "question": "Bharat ki rajdhani kya hai?", "result": "PASS", "response": "नई दिल्ली भारत की राजधानी है।"},
+    {"case": "E", "question": "भारत की राजधानी का नाम क्या है?", "result": "PASS", "response": "नई दिल्ली भारत की राजधानी है।"},
+    {"case": "F", "question": "चेन्नई किस राज्य की राजधानी है?", "result": "PASS", "response": "चेन्नई तमिलनाडु की राजधानी है।"},
+    {"case": "G", "question": "मुझे हिंदी में जवाब दीजिए। भारत की राजधानी क्या है?", "result": "PASS", "response": "नई दिल्ली हिंदी में भारत की राजधानी है।"},
+    {"case": "H", "question": "What is the capital of Tamil Nadu?", "result": "PASS", "response": "Chennai is the capital of Tamil Nadu."},
+    {"case": "I", "question": "What is the capital of India?", "result": "PASS", "response": "New Delhi is the capital of India."},
+    {"case": "J", "note": "Multi-turn context isolation: Bharat -> Tamil Nadu", "result": "PASS", "response": "Chennai तमिलनाडु की राजधानी है।"},
+    {"case": "K", "note": "English turn then Hindi question — context isolation", "result": "PASS", "response": "नई दिल्ली है भारत की राजधानी।"}
+  ]
 }

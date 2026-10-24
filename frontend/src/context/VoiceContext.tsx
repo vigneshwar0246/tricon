@@ -49,7 +49,7 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
   const stream = useRef<MediaStream | null>(null);
   const chunks = useRef<Blob[]>([]);
   const [silenceMs, setSilenceMs] = useState(900);
-  const [bargeInEnabled, setBargeInEnabled] = useState(true);
+  const [bargeInEnabled, setBargeInEnabled] = useState(false);
   const playback = useRef<HTMLAudioElement | null>(null);
   const finishPlayback = useRef<(() => void) | null>(null);
   const stopHandsFreeRef = useRef<(() => void) | null>(null);
@@ -91,7 +91,7 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
     let assistantText = "";
     let resultMetrics: Metrics = {};
     let action: string | undefined;
-    const playChunk = (url: string) => new Promise<void>((resolve, reject) => {
+    const playChunk = (url: string) => new Promise<void>((resolve) => {
       if (generation !== turnGeneration.current) { resolve(); return; }
       const audio = new Audio(url);
       playback.current = audio;
@@ -101,8 +101,18 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
         setMetrics((current) => ({ ...current, firstAudioMs: current.firstAudioMs ?? Math.round(performance.now() - commandEndedAt) }));
       };
       audio.onended = () => resolve();
-      audio.onerror = () => reject(new Error("Generated speech could not be played."));
-      void audio.play().catch(reject);
+      audio.onerror = () => {
+        console.error("Audio chunk playback failed:", url);
+        resolve();
+      };
+      void audio.play().catch((err) => {
+        if (generation !== turnGeneration.current) {
+          resolve();
+        } else {
+          console.error("Audio chunk play error:", err);
+          resolve();
+        }
+      });
     });
     try {
       await streamVoice(blob, sessionId.current, language || undefined, controller.signal, (event) => {
@@ -145,6 +155,9 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
     silenceMs,
     suspended: phase === "processing" || phase === "generating",
     monitorInterruption: bargeInEnabled && phase === "speaking",
+    interruptionThreshold: 0.065,
+    interruptionDurationMs: 250,
+    interruptionWarmupMs: 600,
     onInterruption: () => {
       turnGeneration.current += 1;
       handsFreeAbort.current?.abort();

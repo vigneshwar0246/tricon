@@ -1,4 +1,4 @@
-﻿# Hindi quality audit — Trikon Voice AI
+# Hindi quality audit — Trikon Voice AI
 
 Audit date: 24 October 2026. Workspace: `D:\Trikon-Voice-AI`.
 
@@ -174,8 +174,8 @@ cd D:\Trikon-Voice-AI\backend
 
 | Suite | Passed | Failed | Skipped |
 |---|---|---|---|
-| Backend (77 tests) | **77** | 0 | 0 |
-| Frontend (20 tests) | **20** | 0 | 0 |
+| Backend (85 tests) | **85** | 0 | 0 |
+| Frontend (21 tests) | **21** | 0 | 0 |
 | ESLint | PASS | - | - |
 | TypeScript/Vite build | PASS | - | - |
 
@@ -192,18 +192,23 @@ One existing AnyIO deprecation warning from starlette; not caused by this code. 
 | E - What is the capital of India? | PASS | The capital of India is New Delhi. |
 | F - context isolation | **FAIL** | bharat ki rajdhani bhopal hai |
 
-### Live semantic checks — qwen2.5:7b (verified 24 October 2026)
+### Live semantic checks — qwen2.5:7b with Enhanced Roman Hindi Instructions (verified 24 October 2026)
 
-| Case | Result | Actual Response |
-|---|---|---|
-| A - bharat ki rajdhani kya hai | **PASS** | nai dilli hai bharat ki rajdhani. |
-| B - bharat ki rajdhani ka naam kya hai | **PASS** | nai dilli sarkar ki rajdhani hai. |
-| C - Chennai kis rajya ki rajdhani hai | **PASS** | Chennai tamilnadu ki rajdhani hai. |
-| D - explicit Hindi instruction | **PASS** | bharat ki rajdhani nai dilli hai. |
-| E - What is the capital of India? | **PASS** | The capital of India is New Delhi. |
-| F - context isolation (English then Hindi) | **PASS** | bharat ki rajdhani nai dilli hai. |
+| Case | Question / Note | Result | Actual Response |
+|---|---|---|---|
+| A | `Tamil Nadu ki rajdhani kya hai?` (Roman Hindi) | **PASS** | Chennai hai, चेन्नई। |
+| B | `तमिलनाडु की राजधानी क्या है?` (Devanagari) | **PASS** | Chennai है तमिलनाडु की राजधानी। |
+| C | `भारत की राजधानी क्या है?` (Devanagari) | **PASS** | नई दिल्ली है भारत की राजधानी। |
+| D | `Bharat ki rajdhani kya hai?` (Roman Hindi) | **PASS** | नई दिल्ली भारत की राजधानी है। |
+| E | `भारत की राजधानी का नाम क्या है?` | **PASS** | नई दिल्ली भारत की राजधानी है। |
+| F | `चेन्नई किस राज्य की राजधानी है?` | **PASS** | चेन्नई तमिलनाडु की राजधानी है। |
+| G | `मुझे हिंदी में जवाब दीजिए। भारत की राजधानी क्या है?` | **PASS** | नई दिल्ली हिंदी में भारत की राजधानी है। |
+| H | `What is the capital of Tamil Nadu?` (English) | **PASS** | Chennai is the capital of Tamil Nadu. |
+| I | `What is the capital of India?` (English) | **PASS** | New Delhi is the capital of India. |
+| J | Multi-turn isolation: Bharat -> Tamil Nadu | **PASS** | Chennai तमिलनाडु की राजधानी है। |
+| K | English turn then Hindi question isolation | **PASS** | नई दिल्ली है भारत की राजधानी। |
 
-All responses are saved in `docs/hindi-audit-results.json` under `hindi-7b-verified-2026-10-24`.
+All responses are saved in `docs/hindi-audit-results.json` under `hindi-7b-v2-verified-2026-10-24` and `.run/hindi-quality-live-v2.json`.
 
 **Not run**: real human microphone recordings, native-listener pronunciation review, physical speaker playback, or validated wake-word inference.
 

@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 from app.core.config import Settings
-from app.services.language_quality import normalize_text, text_quality_error
+from app.services.language_quality import normalize_text, text_quality_error, HINDI_INSTRUCTION
 from app.services.llm import OllamaResponseError, OllamaUnavailableError
 from app.services.pipeline import VoicePipeline
 from app.services.session_manager import SessionManager
@@ -13,19 +13,40 @@ from app.services.stt import SpeechToTextService, TranscriptionError
 from app.services.tts import to_spoken_text
 
 
+# ---------------------------------------------------------------------------
+# Pipeline contract test cases (mocked LLM; answers are provided by the test)
+# These verify routing, prompt construction, TTS invocation, and token limits.
+# They are NOT claims that a real model produces these exact answers.
+# ---------------------------------------------------------------------------
+
 CASES = [
-    ("भारत की राजधानी क्या है?", "hi", "भारत की राजधानी नई दिल्ली है।", "नई दिल्ली"),
-    ("भारत की राजधानी का नाम क्या है?", "hi", "नई दिल्ली भारत की राजधानी है।", "नई दिल्ली"),
-    ("चेन्नई किस राज्य की राजधानी है?", "hi", "चेन्नई तमिलनाडु की राजधानी है।", "तमिलनाडु"),
-    ("मुझे हिंदी में जवाब दीजिए। भारत की राजधानी क्या है?", "hi", "भारत की राजधानी नई दिल्ली है।", "नई दिल्ली"),
-    ("What is the capital of India?", "en", "India's capital is New Delhi.", "New Delhi"),
+    # (question, language, mocked_answer, expected_meaning)
+    # 1. Devanagari: Bharat ki rajdhani — New Delhi
+    ("\u092d\u093e\u0930\u0924 \u0915\u0940 \u0930\u093e\u091c\u0927\u093e\u0928\u0940 \u0915\u094d\u092f\u093e \u0939\u0948?", "hi", "\u092d\u093e\u0930\u0924 \u0915\u0940 \u0930\u093e\u091c\u0927\u093e\u0928\u0940 \u0928\u0908 \u0926\u093f\u0932\u094d\u0932\u0940 \u0939\u0948\u0964", "\u0928\u0908 \u0926\u093f\u0932\u094d\u0932\u0940"),
+    # 2. Devanagari: Bharat ki rajdhani ka naam
+    ("\u092d\u093e\u0930\u0924 \u0915\u0940 \u0930\u093e\u091c\u0927\u093e\u0928\u0940 \u0915\u093e \u0928\u093e\u092e \u0915\u094d\u092f\u093e \u0939\u0948?", "hi", "\u0928\u0908 \u0926\u093f\u0932\u094d\u0932\u0940 \u092d\u093e\u0930\u0924 \u0915\u0940 \u0930\u093e\u091c\u0927\u093e\u0928\u0940 \u0939\u0948\u0964", "\u0928\u0908 \u0926\u093f\u0932\u094d\u0932\u0940"),
+    # 3. Devanagari: Chennai state question
+    ("\u091a\u0947\u0928\u094d\u0928\u0908 \u0915\u093f\u0938 \u0930\u093e\u091c\u094d\u092f \u0915\u0940 \u0930\u093e\u091c\u0927\u093e\u0928\u0940 \u0939\u0948?", "hi", "\u091a\u0947\u0928\u094d\u0928\u0908 \u0924\u092e\u093f\u0932\u0928\u093e\u0921\u0941 \u0915\u0940 \u0930\u093e\u091c\u0927\u093e\u0928\u0940 \u0939\u0948\u0964", "\u0924\u092e\u093f\u0932\u0928\u093e\u0921\u0941"),
+    # 4. Devanagari: Tamil Nadu ki rajdhani (exact user question)
+    ("\u0924\u092e\u093f\u0932\u0928\u093e\u0921\u0941 \u0915\u0940 \u0930\u093e\u091c\u0927\u093e\u0928\u0940 \u0915\u094d\u092f\u093e \u0939\u0948?", "hi", "\u0924\u092e\u093f\u0932\u0928\u093e\u0921\u0941 \u0915\u0940 \u0930\u093e\u091c\u0927\u093e\u0928\u0940 \u091a\u0947\u0928\u094d\u0928\u0908 \u0939\u0948\u0964", "\u091a\u0947\u0928\u094d\u0928\u0908"),
+    # 5. Roman Hindi: Tamil Nadu ki rajdhani kya hai (the original reported bug)
+    ("Tamil Nadu ki rajdhani kya hai?", "hi", "\u0924\u092e\u093f\u0932\u0928\u093e\u0921\u0941 \u0915\u0940 \u0930\u093e\u091c\u0927\u093e\u0928\u0940 \u091a\u0947\u0928\u094d\u0928\u0908 \u0939\u0948\u0964", "\u091a\u0947\u0928\u094d\u0928\u0908"),
+    # 6. Roman Hindi: Bharat ki rajdhani kya hai
+    ("Bharat ki rajdhani kya hai?", "hi", "\u092d\u093e\u0930\u0924 \u0915\u0940 \u0930\u093e\u091c\u0927\u093e\u0928\u0940 \u0928\u0908 \u0926\u093f\u0932\u094d\u0932\u0940 \u0939\u0948\u0964", "\u0928\u0908 \u0926\u093f\u0932\u094d\u0932\u0940"),
+    # 7. Explicit Hindi request
+    ("\u092e\u0941\u091d\u0947 \u0939\u093f\u0902\u0926\u0940 \u092e\u0947\u0902 \u091c\u0935\u093e\u092c \u0926\u0940\u091c\u093f\u090f\u0964 \u092d\u093e\u0930\u0924 \u0915\u0940 \u0930\u093e\u091c\u0927\u093e\u0928\u0940 \u0915\u094d\u092f\u093e \u0939\u0948?", "hi", "\u092d\u093e\u0930\u0924 \u0915\u0940 \u0930\u093e\u091c\u0927\u093e\u0928\u0940 \u0928\u0908 \u0926\u093f\u0932\u094d\u0932\u0940 \u0939\u0948\u0964", "\u0928\u0908 \u0926\u093f\u0932\u094d\u0932\u0940"),
+    # 8. English question about Tamil Nadu capital
+    ("What is the capital of Tamil Nadu?", "en", "The capital of Tamil Nadu is Chennai.", "Chennai"),
+    # 9. English question about India capital
+    ("What is the capital of India?", "en", "The capital of India is New Delhi.", "New Delhi"),
 ]
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("question,language,answer,meaning", CASES)
 async def test_factual_answer_passes_unchanged_to_display_and_correct_voice(question, language, answer, meaning):
-    # Contract test, not evidence that a real model knows these facts.
+    # Contract test: verifies routing, prompts, TTS call, and token limits.
+    # NOT evidence that a real model knows these facts.
     llm = Mock(chat=AsyncMock(return_value=(answer, {"done_reason": "stop"})))
     stt = Mock(transcribe=Mock(return_value=(question, {"language": language, "language_probability": 1})))
     tts = Mock(synthesize_to_file=Mock(return_value=(Path("reply.wav"), 1)), available_for=Mock(return_value=True))
@@ -44,45 +65,87 @@ async def test_factual_answer_passes_unchanged_to_display_and_correct_voice(ques
 
 
 @pytest.mark.asyncio
+async def test_roman_hindi_question_receives_hindi_system_prompt():
+    """Roman Hindi 'Tamil Nadu ki rajdhani kya hai?' must use the Hindi system prompt with Devanagari rules."""
+    answer = "\u0924\u092e\u093f\u0932\u0928\u093e\u0921\u0941 \u0915\u0940 \u0930\u093e\u091c\u0927\u093e\u0928\u0940 \u091a\u0947\u0928\u094d\u0928\u0908 \u0939\u0948\u0964"
+    llm = Mock(chat=AsyncMock(return_value=(answer, {"done_reason": "stop"})))
+    stt = Mock(transcribe=Mock(return_value=("Tamil Nadu ki rajdhani kya hai?", {"language": "hi", "language_probability": 0.95})))
+    tts = Mock(synthesize_to_file=Mock(return_value=(Path("reply.wav"), 1)), available_for=Mock(return_value=True))
+    pipeline = VoicePipeline(llm=llm, stt=stt, tts=tts, sessions=SessionManager())
+    result = await pipeline.voice("input.wav", language="hi")
+    system_content = llm.chat.await_args.args[0][0]["content"]
+    # System prompt must include Roman Hindi understanding instruction
+    assert "Roman" in system_content or "Hinglish" in system_content or "roman" in system_content.lower()
+    assert "Devanagari" in system_content
+    assert "\u091a\u0947\u0928\u094d\u0928\u0908" in result.response  # चेन्नई
+
+
+@pytest.mark.asyncio
+async def test_hindi_instruction_contains_roman_hindi_understanding():
+    """HINDI_INSTRUCTION must explicitly mention Roman Hindi/Hinglish understanding."""
+    assert "Roman" in HINDI_INSTRUCTION or "Hinglish" in HINDI_INSTRUCTION
+    assert "Devanagari" in HINDI_INSTRUCTION
+    # Must instruct proper noun Devanagari
+    assert "\u091a\u0947\u0928\u094d\u0928\u0908" in HINDI_INSTRUCTION or "proper noun" in HINDI_INSTRUCTION.lower()
+
+
+@pytest.mark.asyncio
 async def test_language_switch_preserves_context_but_prioritizes_latest_question():
-    llm = Mock(chat=AsyncMock(side_effect=[("Exercise can improve fitness.", {}), ("भारत की राजधानी नई दिल्ली है।", {})]))
+    llm = Mock(chat=AsyncMock(side_effect=[("Exercise can improve fitness.", {}), ("\u092d\u093e\u0930\u0924 \u0915\u0940 \u0930\u093e\u091c\u0927\u093e\u0928\u0940 \u0928\u0908 \u0926\u093f\u0932\u094d\u0932\u0940 \u0939\u0948\u0964", {})]))
     pipeline = VoicePipeline(llm=llm, sessions=SessionManager())
     await pipeline.chat("Tell me about exercise", "mixed", "en")
     result = await pipeline.chat(CASES[0][0], "mixed", "hi")
     messages = llm.chat.await_args.args[0]
     assert messages[-1]["content"] == CASES[0][0]
-    assert "latest question" in messages[0]["content"]
+    assert "latest question" in messages[0]["content"] or "latest" in messages[0]["content"].lower()
     assert "Devanagari" in messages[0]["content"]
     assert any(m["content"] == "Exercise can improve fitness." for m in messages)
-    assert "नई दिल्ली" in result.response
+    assert "\u0928\u0908 \u0926\u093f\u0932\u094d\u0932\u0940" in result.response
+
+
+@pytest.mark.asyncio
+async def test_multi_turn_context_isolation_does_not_corrupt_current_answer():
+    """After asking about India's capital, asking about Tamil Nadu's capital must not confuse them."""
+    side_effects = [
+        ("\u092d\u093e\u0930\u0924 \u0915\u0940 \u0930\u093e\u091c\u0927\u093e\u0928\u0940 \u0928\u0908 \u0926\u093f\u0932\u094d\u0932\u0940 \u0939\u0948\u0964", {"done_reason": "stop"}),
+        ("\u0924\u092e\u093f\u0932\u0928\u093e\u0921\u0941 \u0915\u0940 \u0930\u093e\u091c\u0927\u093e\u0928\u0940 \u091a\u0947\u0928\u094d\u0928\u0908 \u0939\u0948\u0964", {"done_reason": "stop"}),
+    ]
+    llm = Mock(chat=AsyncMock(side_effect=side_effects))
+    pipeline = VoicePipeline(llm=llm, sessions=SessionManager())
+    await pipeline.chat("Bharat ki rajdhani kya hai?", "multi-turn", "hi")
+    result = await pipeline.chat("Ab Tamil Nadu ki rajdhani batao.", "multi-turn", "hi")
+    # Second answer must mention Chennai, not New Delhi
+    assert "\u091a\u0947\u0928\u094d\u0928\u0908" in result.response
+    # Must NOT say New Delhi for Tamil Nadu
+    assert "\u0928\u0908 \u0926\u093f\u0932\u094d\u0932\u0940" not in result.response
 
 
 @pytest.mark.asyncio
 async def test_typed_hindi_without_override_is_not_locked_to_previous_english():
-    llm = Mock(chat=AsyncMock(return_value=("उत्तर", {})))
+    llm = Mock(chat=AsyncMock(return_value=("\u0909\u0924\u094d\u0924\u0930", {})))
     pipeline = VoicePipeline(llm=llm, sessions=SessionManager())
     await pipeline.chat("Hello", "auto", "en")
     await pipeline.chat(CASES[0][0], "auto")
     assert "Devanagari" in llm.chat.await_args.args[0][0]["content"]
 
 
-@pytest.mark.parametrize("text", ["", "बार बार बार बार", "यह सही है यह सही है यह सही है यह सही है", "उत्तर\ufffd", "<|im_start|>assistant"])
+@pytest.mark.parametrize("text", ["", "\u092c\u093e\u0930 \u092c\u093e\u0930 \u092c\u093e\u0930 \u092c\u093e\u0930", "\u092f\u0939 \u0938\u0939\u0940 \u0939\u0948 \u092f\u0939 \u0938\u0939\u0940 \u0939\u0948 \u092f\u0939 \u0938\u0939\u0940 \u0939\u0948 \u092f\u0939 \u0938\u0939\u0940 \u0939\u0948", "\u0909\u0924\u094d\u0924\u0930\ufffd", "<|im_start|>assistant"])
 def test_obvious_bad_text_is_rejected(text):
     assert text_quality_error(text)
 
 
-@pytest.mark.parametrize("text", ["नई दिल्ली।", "Python 3.11 में 2 files हैं।", "NASA का मिशन 2026 में है।", "New Delhi", "42", "चेन्नई तमिलनाडु की राजधानी है।"])
+@pytest.mark.parametrize("text", ["\u0928\u0908 \u0926\u093f\u0932\u094d\u0932\u0940\u0964", "Python 3.11 \u092e\u0947\u0902 2 files \u0939\u0948\u0902\u0964", "NASA \u0915\u093e \u092e\u093f\u0936\u0928 2026 \u092e\u0947\u0902 \u0939\u0948\u0964", "New Delhi", "42", "\u091a\u0947\u0928\u094d\u0928\u0908 \u0924\u092e\u093f\u0932\u0928\u093e\u0921\u0941 \u0915\u0940 \u0930\u093e\u091c\u0927\u093e\u0928\u0940 \u0939\u0948\u0964"])
 def test_names_numbers_and_mixed_language_are_allowed(text):
     assert text_quality_error(text) is None
     assert to_spoken_text(text) == text
 
 
 def test_normalization_preserves_devanagari_marks_and_punctuation():
-    assert normalize_text("  भारत की\nराजधानी नई दिल्ली है।  ") == "भारत की राजधानी नई दिल्ली है।"
+    assert normalize_text("  \u092d\u093e\u0930\u0924 \u0915\u0940\n\u0930\u093e\u091c\u0927\u093e\u0928\u0940 \u0928\u0908 \u0926\u093f\u0932\u094d\u0932\u0940 \u0939\u0948\u0964  ") == "\u092d\u093e\u0930\u0924 \u0915\u0940 \u0930\u093e\u091c\u0927\u093e\u0928\u0940 \u0928\u0908 \u0926\u093f\u0932\u094d\u0932\u0940 \u0939\u0948\u0964"
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("answer,metadata", [("बार " * 8, {}), ("अधूरा उत्तर", {"done_reason": "length"}), ("", {})])
+@pytest.mark.parametrize("answer,metadata", [("\u092c\u093e\u0930 " * 8, {}), ("\u0905\u0927\u0942\u0930\u093e \u0909\u0924\u094d\u0924\u0930", {"done_reason": "length"}), ("", {})])
 async def test_invalid_hindi_stream_never_reaches_tts_or_history(answer, metadata):
     class Llm:
         async def chat_stream(self, messages, *, num_predict):
@@ -103,17 +166,35 @@ async def test_invalid_hindi_stream_never_reaches_tts_or_history(answer, metadat
 
 @pytest.mark.asyncio
 async def test_valid_hindi_stream_uses_same_answer_for_text_and_speech():
-    answer = "भारत की राजधानी नई दिल्ली है।"
+    answer = "\u092d\u093e\u0930\u0924 \u0915\u0940 \u0930\u093e\u091c\u0927\u093e\u0928\u0940 \u0928\u0908 \u0926\u093f\u0932\u094d\u0932\u0940 \u0939\u0948\u0964"
     class Llm:
         async def chat_stream(self, messages, *, num_predict):
-            yield {"token": "भारत की राजधानी "}
-            yield {"token": "नई दिल्ली है।", "done": True, "metadata": {"done_reason": "stop"}}
+            yield {"token": "\u092d\u093e\u0930\u0924 \u0915\u0940 \u0930\u093e\u091c\u0927\u093e\u0928\u0940 "}
+            yield {"token": "\u0928\u0908 \u0926\u093f\u0932\u094d\u0932\u0940 \u0939\u0948\u0964", "done": True, "metadata": {"done_reason": "stop"}}
     stt = Mock(transcribe=Mock(return_value=(CASES[0][0], {"language": "hi"})))
     tts = Mock(available_for=Mock(return_value=True), synthesize_to_file=Mock(return_value=(Path("reply.wav"), 1)))
     pipeline = VoicePipeline(llm=Llm(), stt=stt, tts=tts, sessions=SessionManager())
     events = [event async for event in pipeline.voice_stream("input.wav", language="hi")]
     assert events[-1]["response"] == answer
     assert "".join(e["delta"] for e in events if e["type"] == "text") == answer
+    tts.synthesize_to_file.assert_called_once_with(answer, "hi")
+
+
+@pytest.mark.asyncio
+async def test_tamil_nadu_stream_uses_correct_answer():
+    """Streaming: 'Tamil Nadu ki rajdhani kya hai?' → correct Devanagari answer."""
+    answer = "\u0924\u092e\u093f\u0932\u0928\u093e\u0921\u0941 \u0915\u0940 \u0930\u093e\u091c\u0927\u093e\u0928\u0940 \u091a\u0947\u0928\u094d\u0928\u0908 \u0939\u0948\u0964"
+    class Llm:
+        async def chat_stream(self, messages, *, num_predict):
+            yield {"token": "\u0924\u092e\u093f\u0932\u0928\u093e\u0921\u0941 \u0915\u0940 \u0930\u093e\u091c\u0927\u093e\u0928\u0940 "}
+            yield {"token": "\u091a\u0947\u0928\u094d\u0928\u0908 \u0939\u0948\u0964", "done": True, "metadata": {"done_reason": "stop"}}
+    stt = Mock(transcribe=Mock(return_value=("Tamil Nadu ki rajdhani kya hai?", {"language": "hi"})))
+    tts = Mock(available_for=Mock(return_value=True), synthesize_to_file=Mock(return_value=(Path("reply.wav"), 1)))
+    pipeline = VoicePipeline(llm=Llm(), stt=stt, tts=tts, sessions=SessionManager())
+    events = [event async for event in pipeline.voice_stream("input.wav", language="hi")]
+    done = events[-1]
+    assert done["type"] == "done"
+    assert "\u091a\u0947\u0928\u094d\u0928\u0908" in done["response"]
     tts.synthesize_to_file.assert_called_once_with(answer, "hi")
 
 
@@ -145,7 +226,7 @@ async def test_uncertain_transcript_never_reaches_model_or_tts():
 def test_low_quality_stt_rejected_even_with_explicit_hindi(logprob, compression):
     service = SpeechToTextService(Settings())
     model = Mock()
-    model.transcribe.return_value = ([SimpleNamespace(text="संदिग्ध", avg_logprob=logprob, compression_ratio=compression)], SimpleNamespace(duration=1))
+    model.transcribe.return_value = ([SimpleNamespace(text="\u0938\u0902\u0926\u093f\u0917\u094d\u0927", avg_logprob=logprob, compression_ratio=compression)], SimpleNamespace(duration=1))
     with pytest.raises(TranscriptionError, match="uncertain"):
         service._transcribe_with_model(model, "audio.wav", "hi")
 

@@ -14,6 +14,9 @@ interface HandsFreeOptions {
   speechThreshold?: number;
   minimumSpeechMs?: number;
   maxDurationMs?: number;
+  interruptionThreshold?: number;
+  interruptionDurationMs?: number;
+  interruptionWarmupMs?: number;
 }
 
 export function useHandsFree(options: HandsFreeOptions) {
@@ -38,8 +41,15 @@ export function useHandsFree(options: HandsFreeOptions) {
   const startCaptureRef = useRef<() => void>(() => {});
   const speechStartedAtRef = useRef<number | null>(null);
   const interruptionFramesRef = useRef(0);
+  const interruptionStartedAtRef = useRef<number | null>(null);
 
-  useEffect(() => { optionsRef.current = options; }, [options]);
+  useEffect(() => {
+    optionsRef.current = options;
+    if (!options.monitorInterruption) {
+      interruptionStartedAtRef.current = null;
+      interruptionFramesRef.current = 0;
+    }
+  }, [options]);
 
   const changeStatus = useCallback((next: HandsFreeState) => {
     statusRef.current = next;
@@ -52,6 +62,8 @@ export function useHandsFree(options: HandsFreeOptions) {
     if (timerRef.current !== null) window.clearInterval(timerRef.current);
     timerRef.current = null;
     discardRef.current = true;
+    interruptionFramesRef.current = 0;
+    interruptionStartedAtRef.current = null;
     if (recorderRef.current?.state === "recording") recorderRef.current.stop();
     recorderRef.current = null;
     streamRef.current?.getTracks().forEach((track) => track.stop());
@@ -130,15 +142,29 @@ export function useHandsFree(options: HandsFreeOptions) {
     const now = performance.now();
     const threshold = Math.max(optionsRef.current.speechThreshold ?? 0.015, noiseFloorRef.current * 2.7);
     if (statusRef.current === "processing" && optionsRef.current.monitorInterruption) {
-      interruptionFramesRef.current = frame.rms > threshold ? interruptionFramesRef.current + 1 : 0;
-      if (interruptionFramesRef.current >= 5) {
+      interruptionStartedAtRef.current ??= now;
+      const warmupMs = optionsRef.current.interruptionWarmupMs ?? 0;
+      if (warmupMs > 0 && now - interruptionStartedAtRef.current < warmupMs) {
         interruptionFramesRef.current = 0;
+        return;
+      }
+      const interruptionThreshold = optionsRef.current.interruptionThreshold ?? threshold;
+      const requiredFrames = optionsRef.current.interruptionDurationMs
+        ? Math.max(1, Math.round(optionsRef.current.interruptionDurationMs / 10))
+        : 5;
+      interruptionFramesRef.current = frame.rms > interruptionThreshold ? interruptionFramesRef.current + 1 : 0;
+      if (interruptionFramesRef.current >= requiredFrames) {
+        interruptionFramesRef.current = 0;
+        interruptionStartedAtRef.current = null;
         generationRef.current += 1;
         optionsRef.current.onInterruption?.();
         changeStatus("armed");
         startCaptureRef.current();
       }
       return;
+    } else {
+      interruptionStartedAtRef.current = null;
+      interruptionFramesRef.current = 0;
     }
     if (optionsRef.current.suspended) return;
     if (statusRef.current === "capturing") {

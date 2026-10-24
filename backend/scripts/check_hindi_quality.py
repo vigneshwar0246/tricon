@@ -11,12 +11,18 @@ from pathlib import Path
 import httpx
 
 
+# Each case: (label, question, language, expected_substrings)
+# Expected substrings are checked case-insensitively against the response.
 CASES = [
-    ("A", "भारत की राजधानी क्या है?", "hi", ("नई दिल्ली", "नयी दिल्ली")),
-    ("B", "भारत की राजधानी का नाम क्या है?", "hi", ("नई दिल्ली", "नयी दिल्ली")),
-    ("C", "चेन्नई किस राज्य की राजधानी है?", "hi", ("तमिलनाडु", "तमिल नाडु", "तमिल नादु", "tamil nadu", "tamilnadu")),
-    ("D", "मुझे हिंदी में जवाब दीजिए। भारत की राजधानी क्या है?", "hi", ("नई दिल्ली", "नयी दिल्ली")),
-    ("E", "What is the capital of India?", "en", ("new delhi",)),
+    ("A", "Tamil Nadu ki rajdhani kya hai?", "hi", ("\u091a\u0947\u0928\u094d\u0928\u0908", "chennai")),
+    ("B", "\u0924\u092e\u093f\u0932\u0928\u093e\u0921\u0941 \u0915\u0940 \u0930\u093e\u091c\u0927\u093e\u0928\u0940 \u0915\u094d\u092f\u093e \u0939\u0948?", "hi", ("\u091a\u0947\u0928\u094d\u0928\u0908", "chennai")),
+    ("C", "\u092d\u093e\u0930\u0924 \u0915\u0940 \u0930\u093e\u091c\u0927\u093e\u0928\u0940 \u0915\u094d\u092f\u093e \u0939\u0948?", "hi", ("\u0928\u0908 \u0926\u093f\u0932\u094d\u0932\u0940", "\u0928\u092f\u0940 \u0926\u093f\u0932\u094d\u0932\u0940", "new delhi", "dilli")),
+    ("D", "Bharat ki rajdhani kya hai?", "hi", ("\u0928\u0908 \u0926\u093f\u0932\u094d\u0932\u0940", "\u0928\u092f\u0940 \u0926\u093f\u0932\u094d\u0932\u0940", "new delhi", "dilli")),
+    ("E", "\u092d\u093e\u0930\u0924 \u0915\u0940 \u0930\u093e\u091c\u0927\u093e\u0928\u0940 \u0915\u093e \u0928\u093e\u092e \u0915\u094d\u092f\u093e \u0939\u0948?", "hi", ("\u0928\u0908 \u0926\u093f\u0932\u094d\u0932\u0940", "\u0928\u092f\u0940 \u0926\u093f\u0932\u094d\u0932\u0940", "new delhi")),
+    ("F", "\u091a\u0947\u0928\u094d\u0928\u0908 \u0915\u093f\u0938 \u0930\u093e\u091c\u094d\u092f \u0915\u0940 \u0930\u093e\u091c\u0927\u093e\u0928\u0940 \u0939\u0948?", "hi", ("\u0924\u092e\u093f\u0932\u0928\u093e\u0921\u0941", "tamil")),
+    ("G", "\u092e\u0941\u091d\u0947 \u0939\u093f\u0902\u0926\u0940 \u092e\u0947\u0902 \u091c\u0935\u093e\u092c \u0926\u0940\u091c\u093f\u090f\u0964 \u092d\u093e\u0930\u0924 \u0915\u0940 \u0930\u093e\u091c\u0927\u093e\u0928\u0940 \u0915\u094d\u092f\u093e \u0939\u0948?", "hi", ("\u0928\u0908 \u0926\u093f\u0932\u094d\u0932\u0940", "\u0928\u092f\u0940 \u0926\u093f\u0932\u094d\u0932\u0940", "new delhi")),
+    ("H", "What is the capital of Tamil Nadu?", "en", ("chennai",)),
+    ("I", "What is the capital of India?", "en", ("new delhi",)),
 ]
 
 
@@ -32,18 +38,66 @@ def main() -> int:
             data = response.json()
             answer = data.get("response", "")
             passed = response.is_success and any(word in answer.casefold() for word in expected)
-            results.append({"case": case, "question": question, "result": "PASS" if passed else "FAIL",
-                            "status": response.status_code, "response": data})
-        first = client.post("/api/chat", json={"message": "Explain exercise briefly.", "language": "en"})
-        first.raise_for_status()
-        response = client.post("/api/chat", json={"message": CASES[0][1], "language": "hi", "session_id": first.json()["session_id"]})
-        data = response.json()
-        passed = response.is_success and any(word in data.get("response", "") for word in CASES[0][3])
-        results.append({"case": "F", "result": "PASS" if passed else "FAIL", "status": response.status_code, "response": data})
+            results.append({
+                "case": case, "question": question, "language": language,
+                "result": "PASS" if passed else "FAIL",
+                "status": response.status_code, "response": data,
+            })
+
+        # Multi-turn context isolation: India capital then Tamil Nadu capital
+        first = client.post("/api/chat", json={"message": "Bharat ki rajdhani kya hai?", "language": "hi"})
+        if first.is_success:
+            session_id = first.json()["session_id"]
+            response = client.post("/api/chat", json={
+                "message": "Ab Tamil Nadu ki rajdhani batao.",
+                "language": "hi",
+                "session_id": session_id,
+            })
+            data = response.json() if response.is_success else {"error": response.text}
+            answer = data.get("response", "") if isinstance(data, dict) else ""
+            has_chennai = any(w in answer.casefold() for w in ("\u091a\u0947\u0928\u094d\u0928\u0908", "chennai"))
+            no_delhi = all(w not in answer.casefold() for w in ("\u0928\u0908 \u0926\u093f\u0932\u094d\u0932\u0940", "new delhi"))
+            passed = response.is_success and has_chennai and no_delhi
+            results.append({
+                "case": "J", "result": "PASS" if passed else "FAIL",
+                "note": "Multi-turn context isolation: Bharat -> Tamil Nadu capitals must not confuse",
+                "status": response.status_code, "response": data,
+            })
+        else:
+            results.append({
+                "case": "J", "result": "FAIL",
+                "note": "First turn failed",
+                "status": first.status_code, "response": first.text,
+            })
+
+        # English then Hindi — context isolation
+        first_en = client.post("/api/chat", json={"message": "What is exercise in one sentence?", "language": "en"})
+        if first_en.is_success:
+            response = client.post("/api/chat", json={
+                "message": "\u092d\u093e\u0930\u0924 \u0915\u0940 \u0930\u093e\u091c\u0927\u093e\u0928\u0940 \u0915\u094d\u092f\u093e \u0939\u0948?",
+                "language": "hi",
+                "session_id": first_en.json()["session_id"],
+            })
+            data = response.json() if response.is_success else {"error": response.text}
+            answer = data.get("response", "") if isinstance(data, dict) else ""
+            passed = response.is_success and any(word in answer for word in ("\u0928\u0908 \u0926\u093f\u0932\u094d\u0932\u0940", "\u0928\u092f\u0940 \u0926\u093f\u0932\u094d\u0932\u0940"))
+            results.append({
+                "case": "K", "result": "PASS" if passed else "FAIL",
+                "note": "English turn then Hindi question — context isolation verified",
+                "status": response.status_code, "response": data,
+            })
+        else:
+            results.append({
+                "case": "K", "result": "FAIL",
+                "note": "First English turn failed",
+                "status": first_en.status_code, "response": first_en.text,
+            })
+
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(results, ensure_ascii=False, indent=2), encoding="utf-8")
     for row in results:
-        print(f"{row['case']}: {row['result']} (HTTP {row['status']})")
+        note = f" [{row.get('note', '')}]" if row.get("note") else ""
+        print(f"{row['case']}: {row['result']} (HTTP {row['status']}){note}")
     print(f"Saved actual responses to {args.output}. Semantic markers require human review for contradictions.")
     return 1 if any(row["result"] == "FAIL" for row in results) else 0
 

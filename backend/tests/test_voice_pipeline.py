@@ -27,6 +27,6 @@ async def test_voice_uses_spoken_style_prompt_and_bounded_generation(tmp_path: P
 
     assert result.response == "A concise spoken reply."
     assert llm.messages[0]["role"] == "system"
-    assert "Do not use markdown" in llm.messages[0]["content"]
+    assert "markdown" in llm.messages[0]["content"].lower()
     assert llm.messages[-1] == {"role": "user", "content": "Explain AI simply"}
     assert llm.num_predict == 64

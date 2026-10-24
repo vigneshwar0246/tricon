@@ -17,10 +17,12 @@ from app.services.stt import SpeechToTextService, TranscriptionError, stt_servic
 from app.services.tts import TextToSpeechService, tts_service
 
 VOICE_SYSTEM_PROMPT = (
-    "You are a friendly voice assistant speaking to one person. Answer directly in one or two short, natural sentences, "
-    "usually under 35 words. Use plain spoken language. Do not use markdown, headings, bullets, emoji, code, URLs, "
-    "formatting, or raw symbol characters. Never read out punctuation or symbol names. Explain technical ideas simply. "
-    "Give more detail only when the user asks for it. If the request is unclear, ask one concise clarifying question."
+    "You are a helpful, accurate voice assistant speaking to one person. "
+    "Answer directly in one or two short, natural spoken sentences (under 35 words). "
+    "Use plain spoken language without markdown, headings, bullets, emoji, code, URLs, or raw symbol characters. "
+    "Never read out punctuation or symbol names. Explain technical ideas simply. "
+    "Give more detail only when the user asks for it. "
+    "If the request is unclear, ask one concise clarifying question."
 )
 
 LANGUAGE_NAMES = {"en": "English", "hi": "Hindi"}
@@ -67,12 +69,16 @@ class VoicePipeline:
 
     @staticmethod
     def _system_prompt(language: str | None, *, voice: bool = False) -> str:
-        base = VOICE_SYSTEM_PROMPT if voice else "You are an accurate local assistant. Answer directly and concisely."
+        base = VOICE_SYSTEM_PROMPT if voice else "You are an accurate local assistant. Answer directly and concisely in one or two short sentences."
         if language == "hi":
-            return f"{base} {HINDI_INSTRUCTION}"
-        return (f"{base} Answer the latest question; use history only for relevant follow-ups. "
-                "If unsure, say you do not know. "
-                "Reply in English unless the user explicitly requests another language.")
+            return f"{base}\n\n{HINDI_INSTRUCTION}"
+        return (
+            f"{base}\n\n"
+            "Language: Reply in English unless the user explicitly requests another language.\n"
+            "If the user writes in Hindi or Hinglish (Roman Hindi), reply in Hindi using Devanagari.\n"
+            "Answer the latest question; use history only for relevant follow-ups.\n"
+            "If unsure, say you do not know."
+        )
 
     async def _resolve_command(self, command: Command) -> Command:
         if command.action != "system_status":
