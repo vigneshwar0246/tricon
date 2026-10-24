@@ -18,6 +18,8 @@ English & Hindi · Streaming responses · Hands-free conversations · Local infe
 
 </div>
 
+---
+
 ## 🎬 Demo
 
 
@@ -306,6 +308,36 @@ npm run build
 
 Automated tests use fakes or validate behavior without downloading models, requiring Ollama, or requiring a GPU. For real-inference acceptance, follow the [demo script](docs/demo-script.md).
 
+### Windows test workarounds
+
+If pytest reports access denied for `pytest-of-yogap` or another system temporary folder, run from `backend/` with a fresh workspace-local temporary directory:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest tests -q -p no:cacheprovider --basetemp="../.test-temp/pytest-$([guid]::NewGuid())"
+```
+
+If Vitest reports a timeout starting its default fork workers, run from `frontend/`:
+
+```powershell
+npm test -- --pool=threads --maxWorkers=1
+```
+
+### Local verification — 24 October 2026
+
+Verified on this Windows checkout with Node.js 22.19.0 and Python 3.11.9, using the installed models and existing local configuration:
+
+| Check | Result |
+|:---|:---|
+| Frontend at `http://127.0.0.1:5173` | HTTP 200 |
+| Backend health | API, Ollama, STT, and TTS ready; English and Hindi readiness flags true |
+| Text chat through the frontend proxy | Real Ollama response received |
+| English voice pipeline | Synthetic spoken question transcribed correctly, answered by Ollama, and synthesized by Piper; returned WAV downloaded and verified |
+| Backend tests | 38 passed using the temporary-directory workaround above |
+| Frontend tests | 19 passed across 4 files using the thread-worker workaround above |
+| ESLint and production build | Passed |
+
+This verifies the local services and an English audio round trip. Physical microphone capture, speaker playback, hands-free interaction, and a real Hindi voice turn still need an interactive check. The voice test used generated audio rather than a microphone recording. Test output included an AnyIO deprecation warning and jsdom's unimplemented media-playback notice.
+
 <details>
 <summary><strong>Run your own voice benchmark</strong></summary>
 
@@ -371,6 +403,30 @@ Trikon-Voice-AI/
 - **Language scope:** English and Hindi are implemented. Tamil is not an accepted voice API language.
 - **Wake word:** Carrot training scaffolding is present; an integrated, validated detector remains future work.
 - **Licensing:** this repository currently has no root license file. Dependencies and model/voice assets have their own terms; inspect them before redistribution.
+
+## Hindi latency tuning
+
+**Quality audit:** see [hindi.md](hindi.md) for the later Hindi audit, independent STT/LLM/TTS findings, and regression commands. Hindi responses now wait for complete-answer validation before speech; the measurements below describe the earlier latency experiment and do not represent the current validation path. English retains incremental speech.
+
+Hindi now initializes the Windows CUDA runtime before loading its recognition model, including when Hindi is the first language used after startup. If CUDA fails during transcription, the retry retains the configured Hindi model on CPU and clears cached GPU language models.
+
+`STT_HI_BEAM_SIZE=2` is the default Hindi decoding search width; English continues to use `STT_BEAM_SIZE=5`. Set `STT_HI_BEAM_SIZE=5` in `backend/.env` and restart the backend if recognition accuracy suffers on your recordings. The smaller model was not substituted: Hindi still uses the configured multilingual model. The earlier latency experiment used an 80-character Hindi streaming chunk threshold; complete-answer validation now takes priority over that optimization.
+
+Measured on 24 October 2026 with the RTX 3050 6 GB, CUDA/float16, Faster-Whisper small, Qwen 2.5 3B, and the configured Hindi Piper voice:
+
+| Mean over three warm synthetic Hindi clips | Before | After |
+|:---|---:|---:|
+| Transcription | 444 ms | 407 ms |
+| Server time to first audio | 2,365 ms | 2,220 ms |
+| Complete response | 2,365 ms | 2,270 ms |
+
+These are small-sample measurements, approximately **6% earlier first audio**, not a general performance guarantee. Both runs used the same saved audio and fresh conversation sessions. Cold startup is excluded: the first request after the final restart took about 11 seconds while models loaded. Keep the backend and Ollama running between turns to retain loaded models. Check `/api/diagnostics` for `stt.last_successful_device: "cuda"` and a null `fallback_reason` after a real voice request.
+
+The clips contained recognition errors with both settings, and Qwen produced inaccurate/repetitive Hindi answers. Faster decoding does not resolve these quality limits; real microphone recordings and listening tests are still needed. All 43 backend tests passed after these changes.
+
+## Project hashtags
+
+`#TrikonVoiceAI` `#VoiceAssistant` `#LocalAI` `#ConversationalAI` `#SpeechToText` `#TextToSpeech` `#Ollama` `#FasterWhisper` `#PiperTTS` `#FastAPI` `#React` `#TypeScript` `#HindiAI`
 
 ## 📚 Further reading
 

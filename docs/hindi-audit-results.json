@@ -1,0 +1,662 @@
+{
+  "hindi-audit-before": [
+    {
+      "case": "A",
+      "input": "भारत की राजधानी क्या है?",
+      "status": 200,
+      "result": {
+        "session_id": "42a4d88b-8dfe-444c-a45d-dbdc48acf14b",
+        "response": "न Delhi",
+        "metrics": {
+          "stt_ms": null,
+          "llm_ms": 398.74,
+          "tts_ms": null,
+          "total_ms": 430.25,
+          "first_token_ms": null,
+          "first_audio_ms": null,
+          "audio_duration_ms": null
+        },
+        "created_at": "2026-10-24T16:05:37.369395Z"
+      }
+    },
+    {
+      "case": "B",
+      "input": "भारत की राजधानी का नाम क्या है?",
+      "status": 200,
+      "result": {
+        "session_id": "af53f7e8-cd2b-4346-b458-74750247bbb8",
+        "response": "बोर्डमैन",
+        "metrics": {
+          "stt_ms": null,
+          "llm_ms": 280.02,
+          "tts_ms": null,
+          "total_ms": 303.98,
+          "first_token_ms": null,
+          "first_audio_ms": null,
+          "audio_duration_ms": null
+        },
+        "created_at": "2026-10-24T16:05:37.683469Z"
+      }
+    },
+    {
+      "case": "C",
+      "input": "चेन्नई किस राज्य की राजधानी है?",
+      "status": 200,
+      "result": {
+        "session_id": "34255d30-132f-46fa-b08d-6525eff34138",
+        "response": "tamil nadu",
+        "metrics": {
+          "stt_ms": null,
+          "llm_ms": 160.34,
+          "tts_ms": null,
+          "total_ms": 180.5,
+          "first_token_ms": null,
+          "first_audio_ms": null,
+          "audio_duration_ms": null
+        },
+        "created_at": "2026-10-24T16:05:37.870643Z"
+      }
+    },
+    {
+      "case": "D",
+      "input": "मुझे हिंदी में जवाब दीजिए। भारत की राजधानी क्या है?",
+      "status": 200,
+      "result": {
+        "session_id": "4c88a6f6-9d14-4d08-9102-1e097ae94b1a",
+        "response": "बोर्डमेंट, भारत की राजधानी की तुलना में एक सामान्य प्रश्न है। यह एक विविध वास्तविकता है क्योंकि भारत की राजधानी बदल सकती है। वरना राजस्वमित्र भोपाल है।",
+        "metrics": {
+          "stt_ms": null,
+          "llm_ms": 2780.79,
+          "tts_ms": null,
+          "total_ms": 2801.87,
+          "first_token_ms": null,
+          "first_audio_ms": null,
+          "audio_duration_ms": null
+        },
+        "created_at": "2026-10-24T16:05:40.678929Z"
+      }
+    },
+    {
+      "case": "E",
+      "input": "What is the capital of India?",
+      "status": 200,
+      "result": {
+        "session_id": "01f11295-f630-4cf1-812f-a873a55a2423",
+        "response": "The capital of India is New Delhi.",
+        "metrics": {
+          "stt_ms": null,
+          "llm_ms": 244.5,
+          "tts_ms": null,
+          "total_ms": 263.36,
+          "first_token_ms": null,
+          "first_audio_ms": null,
+          "audio_duration_ms": null
+        },
+        "created_at": "2026-10-24T16:05:40.948643Z"
+      }
+    }
+  ],
+  "hindi-prompt-probes": [
+    {
+      "prompt": 0,
+      "question": "भारत की राजधानी क्या है?",
+      "answer": "भारत की राजधानी भोपाल है।",
+      "reason": "stop"
+    },
+    {
+      "prompt": 0,
+      "question": "भारत की राजधानी का नाम क्या है?",
+      "answer": "भारत की राजधानी नैनाइडे है।",
+      "reason": "stop"
+    },
+    {
+      "prompt": 0,
+      "question": "चेन्नई किस राज्य की राजधानी है?",
+      "answer": "चेन्नई तAMIL-नाडु राज्य की राजधानी है",
+      "reason": "stop"
+    },
+    {
+      "prompt": 1,
+      "question": "भारत की राजधानी क्या है?",
+      "answer": "भारत की राजधानी भोपाल है। लेकिन यह एक गलत जानकारी है क्योंकि भारत की राजधानी बहुत से दिनों से नई दिल्ली है।",
+      "reason": "stop"
+    },
+    {
+      "prompt": 1,
+      "question": "भारत की राजधानी का नाम क्या है?",
+      "answer": "भारत की राजधानी भोपाल है।",
+      "reason": "stop"
+    },
+    {
+      "prompt": 1,
+      "question": "चेन्नई किस राज्य की राजधानी है?",
+      "answer": "चेन्नई तamil Nadu राज्य की राजधानी है।",
+      "reason": "stop"
+    },
+    {
+      "prompt": 2,
+      "question": "भारत की राजधानी क्या है?",
+      "answer": "कोलकाता",
+      "reason": "stop"
+    },
+    {
+      "prompt": 2,
+      "question": "भारत की राजधानी का नाम क्या है?",
+      "answer": "भारत की राजधानी भोपाल है।",
+      "reason": "stop"
+    },
+    {
+      "prompt": 2,
+      "question": "चेन्नई किस राज्य की राजधानी है?",
+      "answer": " tamilnadu",
+      "reason": "stop"
+    }
+  ],
+  "hindi-gemma-probe": [
+    {
+      "question": "भारत की राजधानी क्या है?",
+      "answer": "भारत की राजधानी दिल्ली है। \n",
+      "reason": "stop",
+      "ms": 4724.6141
+    },
+    {
+      "question": "भारत की राजधानी का नाम क्या है?",
+      "answer": "भारत की राजधानी दिल्ली है। \n",
+      "reason": "stop",
+      "ms": 299.1059
+    },
+    {
+      "question": "चेन्नई किस राज्य की राजधानी है?",
+      "answer": "चेन्नई **तमिलनाडु** की राजधानी है। \n",
+      "reason": "stop",
+      "ms": 418.5075
+    },
+    {
+      "question": "मुझे हिंदी में जवाब दीजिए। भारत की राजधानी क्या है?",
+      "answer": "भारत की राजधानी दिल्ली है। \n",
+      "reason": "stop",
+      "ms": 323.8712
+    },
+    {
+      "question": "What is the capital of India?",
+      "answer": "भारत का मुख्यालय नई दिल्ली है। \n",
+      "reason": "stop",
+      "ms": 329.7957
+    }
+  ],
+  "hindi-stt-probes": [
+    {
+      "prompt": true,
+      "sample": 0,
+      "reference": "भारत की राजधानी क्या है?",
+      "transcript": "भारत की राजदानी क्या है।",
+      "segments": [
+        {
+          "logprob": -0.3331473150423595,
+          "compression": 1.0666666666666667,
+          "no_speech": 0.03814697265625
+        }
+      ]
+    },
+    {
+      "prompt": true,
+      "sample": 1,
+      "reference": "भारत की राजधानी का नाम क्या है?",
+      "transcript": "भारत की राजदानी का नाम क्या है?",
+      "segments": [
+        {
+          "logprob": -0.32386363636363635,
+          "compression": 1.2153846153846153,
+          "no_speech": 0.0255279541015625
+        }
+      ]
+    },
+    {
+      "prompt": true,
+      "sample": 2,
+      "reference": "चेन्नई किस राज्य की राजधानी है?",
+      "transcript": "जेर नहीं किस राज़की राजदानी है।",
+      "segments": [
+        {
+          "logprob": -0.33223683269400345,
+          "compression": 1.2028985507246377,
+          "no_speech": 0.140380859375
+        }
+      ]
+    },
+    {
+      "prompt": true,
+      "sample": 3,
+      "reference": "कंप्यूटर कैसे काम करता है?",
+      "transcript": "तंपूटर कैसे काम करता है?",
+      "segments": [
+        {
+          "logprob": -0.3758680688010322,
+          "compression": 1.0163934426229508,
+          "no_speech": 0.033172607421875
+        }
+      ]
+    },
+    {
+      "prompt": false,
+      "sample": 0,
+      "reference": "भारत की राजधानी क्या है?",
+      "transcript": "भारत की राजदानी क्या है?",
+      "segments": [
+        {
+          "logprob": -0.35358796296296297,
+          "compression": 1.0689655172413792,
+          "no_speech": 0.01178741455078125
+        }
+      ]
+    },
+    {
+      "prompt": false,
+      "sample": 1,
+      "reference": "भारत की राजधानी का नाम क्या है?",
+      "transcript": "भारत की राजदानी का नाम क्या है?",
+      "segments": [
+        {
+          "logprob": -0.3404356060606061,
+          "compression": 1.2153846153846153,
+          "no_speech": 0.0100860595703125
+        }
+      ]
+    },
+    {
+      "prompt": false,
+      "sample": 2,
+      "reference": "चेन्नई किस राज्य की राजधानी है?",
+      "transcript": "जेर नहीं किस राज़की राजदानी है",
+      "segments": [
+        {
+          "logprob": -0.3602430431379212,
+          "compression": 1.1764705882352942,
+          "no_speech": 0.0916748046875
+        }
+      ]
+    },
+    {
+      "prompt": false,
+      "sample": 3,
+      "reference": "कंप्यूटर कैसे काम करता है?",
+      "transcript": "तंपुटर कैसे काम करता है?",
+      "segments": [
+        {
+          "logprob": -0.39178240961498684,
+          "compression": 1.0,
+          "no_speech": 0.0041656494140625
+        }
+      ]
+    }
+  ],
+  "hindi-tts-verification": [
+    {
+      "input": "भारत की राजधानी नई दिल्ली है।",
+      "spoken_text": "भारत की राजधानी नई दिल्ली है।",
+      "wav": {
+        "rate": 22050,
+        "frames": 46336,
+        "channels": 1
+      },
+      "tts_ms": 241.81,
+      "asr_roundtrip": "भारत की राजदानी नहीं दिली है",
+      "language": {
+        "language": "hi",
+        "language_probability": 1
+      }
+    },
+    {
+      "input": "चेन्नई तमिलनाडु की राजधानी है।",
+      "spoken_text": "चेन्नई तमिलनाडु की राजधानी है।",
+      "wav": {
+        "rate": 22050,
+        "frames": 51456,
+        "channels": 1
+      },
+      "tts_ms": 109.73,
+      "asr_roundtrip": "चेहने ही तमिलनादू की राज्दानी है",
+      "language": {
+        "language": "hi",
+        "language_probability": 1
+      }
+    },
+    {
+      "input": "Python 3.11 में दो फाइलें हैं।",
+      "spoken_text": "Python 3.11 में दो फाइलें हैं।",
+      "wav": {
+        "rate": 22050,
+        "frames": 59648,
+        "channels": 1
+      },
+      "tts_ms": 124.34,
+      "asr_roundtrip": "पाइतन तीन दसम लो एक केख में दो पहले हैं",
+      "language": {
+        "language": "hi",
+        "language_probability": 1
+      }
+    }
+  ],
+  "hindi-quality-live": [
+    {
+      "case": "A",
+      "question": "भारत की राजधानी क्या है?",
+      "result": "FAIL",
+      "status": 200,
+      "response": {
+        "session_id": "cf8f182f-d531-4ed2-bcc9-a492fa63c3d5",
+        "response": "भारत की राजधानी भोपाल है",
+        "metrics": {
+          "stt_ms": null,
+          "llm_ms": 901.31,
+          "tts_ms": null,
+          "total_ms": 1420.98,
+          "first_token_ms": null,
+          "first_audio_ms": null,
+          "audio_duration_ms": null
+        },
+        "created_at": "2026-10-24T16:10:58.061524Z"
+      }
+    },
+    {
+      "case": "B",
+      "question": "भारत की राजधानी का नाम क्या है?",
+      "result": "FAIL",
+      "status": 200,
+      "response": {
+        "session_id": "32c46ae7-1cf4-47bc-9213-40c6e7f602a1",
+        "response": "भारत की राजधानी नैनाइल है।",
+        "metrics": {
+          "stt_ms": null,
+          "llm_ms": 552.93,
+          "tts_ms": null,
+          "total_ms": 562.38,
+          "first_token_ms": null,
+          "first_audio_ms": null,
+          "audio_duration_ms": null
+        },
+        "created_at": "2026-10-24T16:10:58.627863Z"
+      }
+    },
+    {
+      "case": "C",
+      "question": "चेन्नई किस राज्य की राजधानी है?",
+      "result": "FAIL",
+      "status": 200,
+      "response": {
+        "session_id": "57a166a9-42b0-40ac-aa8b-2b34875ead60",
+        "response": "चेन्नई तमिल नादु की राजधानी है",
+        "metrics": {
+          "stt_ms": null,
+          "llm_ms": 609.91,
+          "tts_ms": null,
+          "total_ms": 622.1,
+          "first_token_ms": null,
+          "first_audio_ms": null,
+          "audio_duration_ms": null
+        },
+        "created_at": "2026-10-24T16:10:59.253424Z"
+      }
+    },
+    {
+      "case": "D",
+      "question": "मुझे हिंदी में जवाब दीजिए। भारत की राजधानी क्या है?",
+      "result": "FAIL",
+      "status": 200,
+      "response": {
+        "session_id": "1923d133-80ef-4d1c-965a-aed12322bfc5",
+        "response": "भारत की राजधानी भोपाल है।",
+        "metrics": {
+          "stt_ms": null,
+          "llm_ms": 559.33,
+          "tts_ms": null,
+          "total_ms": 571.93,
+          "first_token_ms": null,
+          "first_audio_ms": null,
+          "audio_duration_ms": null
+        },
+        "created_at": "2026-10-24T16:10:59.831128Z"
+      }
+    },
+    {
+      "case": "E",
+      "question": "What is the capital of India?",
+      "result": "PASS",
+      "status": 200,
+      "response": {
+        "session_id": "9e0e0dd3-8287-43ba-95aa-368a13c37fae",
+        "response": "The capital of India is New Delhi.",
+        "metrics": {
+          "stt_ms": null,
+          "llm_ms": 261.61,
+          "tts_ms": null,
+          "total_ms": 295.97,
+          "first_token_ms": null,
+          "first_audio_ms": null,
+          "audio_duration_ms": null
+        },
+        "created_at": "2026-10-24T16:11:00.130820Z"
+      }
+    },
+    {
+      "case": "F",
+      "result": "FAIL",
+      "status": 200,
+      "response": {
+        "session_id": "4bee3c8d-ab09-40b2-a355-77353482bb47",
+        "response": "भारत की राजधानी भोपाल है।",
+        "metrics": {
+          "stt_ms": null,
+          "llm_ms": 560.19,
+          "tts_ms": null,
+          "total_ms": 569.17,
+          "first_token_ms": null,
+          "first_audio_ms": null,
+          "audio_duration_ms": null
+        },
+        "created_at": "2026-10-24T16:11:01.660384Z"
+      }
+    }
+  ],
+  "hindi-3b-final": [
+    {
+      "case": "A",
+      "question": "भारत की राजधानी क्या है?",
+      "result": "FAIL",
+      "status": 200,
+      "response": {
+        "session_id": "4c80fdc0-fdd6-4405-a611-9f82368a01ec",
+        "response": "दिल्ली",
+        "metrics": {
+          "stt_ms": null,
+          "llm_ms": 573.24,
+          "tts_ms": null,
+          "total_ms": 593.32,
+          "first_token_ms": null,
+          "first_audio_ms": null,
+          "audio_duration_ms": null
+        },
+        "created_at": "2026-10-24T16:19:26.325767Z"
+      }
+    },
+    {
+      "case": "B",
+      "question": "भारत की राजधानी का नाम क्या है?",
+      "result": "FAIL",
+      "status": 200,
+      "response": {
+        "session_id": "fefe0a61-39fb-44c8-a0d0-5dd481e99771",
+        "response": "भारत की राजधानी नैल है",
+        "metrics": {
+          "stt_ms": null,
+          "llm_ms": 513.65,
+          "tts_ms": null,
+          "total_ms": 524.25,
+          "first_token_ms": null,
+          "first_audio_ms": null,
+          "audio_duration_ms": null
+        },
+        "created_at": "2026-10-24T16:19:26.855778Z"
+      }
+    },
+    {
+      "case": "C",
+      "question": "चेन्नई किस राज्य की राजधानी है?",
+      "result": "FAIL",
+      "status": 200,
+      "response": {
+        "session_id": "66f4d8cd-c802-4bda-b4cd-6f72b04654bb",
+        "response": "चेन्नई तAMIL-नाडु राज्य की राजधानी है",
+        "metrics": {
+          "stt_ms": null,
+          "llm_ms": 736.79,
+          "tts_ms": null,
+          "total_ms": 747.27,
+          "first_token_ms": null,
+          "first_audio_ms": null,
+          "audio_duration_ms": null
+        },
+        "created_at": "2026-10-24T16:19:27.607946Z"
+      }
+    },
+    {
+      "case": "D",
+      "question": "मुझे हिंदी में जवाब दीजिए। भारत की राजधानी क्या है?",
+      "result": "FAIL",
+      "status": 200,
+      "response": {
+        "session_id": "26e72900-df20-4b14-9a28-9fdb55902aaa",
+        "response": "भारत की राजधानी भोपाल है",
+        "metrics": {
+          "stt_ms": null,
+          "llm_ms": 532.0,
+          "tts_ms": null,
+          "total_ms": 542.12,
+          "first_token_ms": null,
+          "first_audio_ms": null,
+          "audio_duration_ms": null
+        },
+        "created_at": "2026-10-24T16:19:28.154796Z"
+      }
+    },
+    {
+      "case": "E",
+      "question": "What is the capital of India?",
+      "result": "PASS",
+      "status": 200,
+      "response": {
+        "session_id": "5e0e65ea-f13b-4a53-bf88-cdd62dfaee97",
+        "response": "The capital of India is New Delhi.",
+        "metrics": {
+          "stt_ms": null,
+          "llm_ms": 253.26,
+          "tts_ms": null,
+          "total_ms": 263.16,
+          "first_token_ms": null,
+          "first_audio_ms": null,
+          "audio_duration_ms": null
+        },
+        "created_at": "2026-10-24T16:19:28.424682Z"
+      }
+    },
+    {
+      "case": "F",
+      "result": "FAIL",
+      "status": 200,
+      "response": {
+        "session_id": "35a8bd59-f3cd-427c-8dee-0032d6861c99",
+        "response": "भारत की राजधानी भोपाल है।",
+        "metrics": {
+          "stt_ms": null,
+          "llm_ms": 608.52,
+          "tts_ms": null,
+          "total_ms": 622.44,
+          "first_token_ms": null,
+          "first_audio_ms": null,
+          "audio_duration_ms": null
+        },
+        "created_at": "2026-10-24T16:19:30.053326Z"
+      }
+    }
+  ],
+  "automated_checks": {
+    "backend": {
+      "passed": 77,
+      "failed": 0,
+      "skipped": 0
+    },
+    "frontend": {
+      "passed": 20,
+      "failed": 0,
+      "skipped": 0
+    },
+    "lint": "PASS",
+    "production_build": "PASS"
+  },
+  "hindi-7b-verified-2026-10-24": [
+    {
+      "case": "A",
+      "question": "भारत की राजधानी क्या है?",
+      "result": "PASS",
+      "model": "qwen2.5:7b",
+      "response": "नई दिल्ली है भारत की राजधानी।",
+      "llm_ms": 16081.53
+    },
+    {
+      "case": "B",
+      "question": "भारत की राजधानी का नाम क्या है?",
+      "result": "PASS",
+      "model": "qwen2.5:7b",
+      "response": "नई दिल्ली सरकार की राजधानी है।",
+      "llm_ms": 1706.19
+    },
+    {
+      "case": "C",
+      "question": "चेन्नई किस राज्य की राजधानी है?",
+      "result": "PASS",
+      "model": "qwen2.5:7b",
+      "response": "चेन्नई तमिलनाडु की राजधानी है।",
+      "llm_ms": 1712.94
+    },
+    {
+      "case": "D",
+      "question": "मुझे हिंदी में जवाब दीजिए। भारत की राजधानी क्या है?",
+      "result": "PASS",
+      "model": "qwen2.5:7b",
+      "response": "भारत की राजधानी नई दिल्ली है।",
+      "llm_ms": 1656.66
+    },
+    {
+      "case": "E",
+      "question": "What is the capital of India?",
+      "result": "PASS",
+      "model": "qwen2.5:7b",
+      "response": "The capital of India is New Delhi.",
+      "llm_ms": 636.94
+    },
+    {
+      "case": "F",
+      "result": "PASS",
+      "model": "qwen2.5:7b",
+      "note": "Hindi follow-up after English context — context isolation verified",
+      "response": "भारत की राजधानी नई दिल्ली है।",
+      "llm_ms": 1713.98
+    }
+  ],
+  "model_comparison_2026-10-24": {
+    "note": "Direct Ollama API comparison — romanized input, temperature=0",
+    "qwen2.5:3b": {
+      "bharatkaprashn": "Delhi ka rashtriya shehar Hindi mein (garbled mixed-language)",
+      "result": "FAIL"
+    },
+    "llama3.2:3b": {
+      "bharatkaprashn": "nai dilli (correct concept, romanized output)",
+      "result": "PARTIAL — correct facts but romanized output when given romanized input"
+    },
+    "qwen2.5:7b": {
+      "all_six_cases": "PASS with Devanagari output",
+      "result": "PASS — verified correct and grammatical Hindi Devanagari"
+    },
+    "decision": "qwen2.5:7b adopted in backend/.env; qwen2.5:3b removed"
+  }
+}

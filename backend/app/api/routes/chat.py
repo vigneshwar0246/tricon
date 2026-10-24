@@ -14,7 +14,7 @@ def _service_error(error: Exception) -> HTTPException:
         return HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(error))
     if isinstance(error, OllamaUnavailableError):
         return HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(error))
-    return HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="The local language model returned an invalid response.")
+    return HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(error))
 
 
 @router.post("", response_model=ChatResponse)

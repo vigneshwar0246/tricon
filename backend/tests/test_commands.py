@@ -48,14 +48,15 @@ async def test_voice_time_command_never_calls_llm(tmp_path: Path) -> None:
 
 @pytest.mark.asyncio
 async def test_voice_status_uses_real_service_flags_without_generating_text(tmp_path: Path) -> None:
+    settings = Settings()
     llm = Mock(
-        list_models=AsyncMock(return_value=["qwen2.5:3b"]),
+        list_models=AsyncMock(return_value=[settings.ollama_model]),
         loaded_models=AsyncMock(return_value=[]),
         chat=AsyncMock(return_value=("READY", {})),
     )
     stt = Mock(
         transcribe=Mock(return_value=("System status", {})), available=True,
-        settings=Settings(), active_device="cpu", active_compute_type="int8",
+        settings=settings, active_device="cpu", active_compute_type="int8",
         last_successful_device=None, fallback_reason=None,
     )
     tts = Mock(
@@ -76,13 +77,14 @@ async def test_voice_status_uses_real_service_flags_without_generating_text(tmp_
 
 @pytest.mark.asyncio
 async def test_typed_status_uses_the_same_live_diagnostics() -> None:
+    settings = Settings()
     llm = Mock(
-        list_models=AsyncMock(return_value=["qwen2.5:3b"]),
+        list_models=AsyncMock(return_value=[settings.ollama_model]),
         loaded_models=AsyncMock(return_value=[]),
         chat=AsyncMock(return_value=("READY", {})),
     )
     stt = Mock(
-        available=True, settings=Settings(), active_device="cpu", active_compute_type="int8",
+        available=True, settings=settings, active_device="cpu", active_compute_type="int8",
         last_successful_device=None, fallback_reason=None,
     )
     tts = Mock(available=True, available_for=Mock(return_value=True))

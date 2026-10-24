@@ -31,7 +31,7 @@ def test_sentence_chunking_preserves_safe_boundaries() -> None:
     assert VoicePipeline._take_speakable_chunk("अंतिम वाक्य। अगला भाग")[0] == "अंतिम वाक्य।"
 
 
-def test_manual_hindi_biases_whisper_toward_devanagari(tmp_path: Path) -> None:
+def test_manual_hindi_sets_decoder_language_without_prompt_leakage(tmp_path: Path) -> None:
     model = Mock()
     model.transcribe.return_value = (
         [Mock(text=" नमस्ते ")],
@@ -44,8 +44,18 @@ def test_manual_hindi_biases_whisper_toward_devanagari(tmp_path: Path) -> None:
     text, _ = service.transcribe(tmp_path / "hindi.wav", "hi")
 
     assert text == "नमस्ते"
-    assert "देवनागरी" in model.transcribe.call_args.kwargs["initial_prompt"]
+    assert model.transcribe.call_args.kwargs["initial_prompt"] is None
+    assert model.transcribe.call_args.kwargs["language"] == "hi"
     assert model.transcribe.call_args.kwargs["condition_on_previous_text"] is False
+
+
+def test_hindi_stream_starts_earlier_without_splitting_words() -> None:
+    text = "पानी बचाने के लिए नल बंद रखें और बारिश का पानी इकट्ठा करके पौधों में इस्तेमाल करें"
+    chunk, remainder = VoicePipeline._take_speakable_chunk(text, language="hi")
+    assert chunk is not None
+    assert f"{chunk} {remainder}" == text
+    assert VoicePipeline._take_speakable_chunk(text, language="en") == (None, text)
+    assert VoicePipeline._take_speakable_chunk("क" * 81, language="hi") == (None, "क" * 81)
 
 
 @pytest.mark.asyncio

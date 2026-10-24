@@ -4,7 +4,7 @@ import httpx
 import pytest
 
 from app.core.config import Settings
-from app.services.llm import OllamaClient, OllamaModelMissingError
+from app.services.llm import OllamaClient, OllamaModelMissingError, OllamaResponseError
 
 
 @pytest.mark.asyncio
@@ -37,5 +37,23 @@ async def test_ollama_missing_model_is_reported_without_fabrication() -> None:
     try:
         with pytest.raises(OllamaModelMissingError):
             await client.chat([{"role": "user", "content": "Hello"}])
+    finally:
+        await client.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("payload", [
+    [{"error": "generation failed"}],
+    [{"message": None}],
+    [{"message": {"content": "unfinished"}}],
+    [{"message": {"content": 42}, "done": True}],
+])
+async def test_stream_errors_and_incomplete_streams_are_not_success(payload):
+    client = OllamaClient()
+    body = "\n".join(json.dumps(event) for event in payload)
+    client._client = httpx.AsyncClient(transport=httpx.MockTransport(lambda _: httpx.Response(200, text=body)))
+    try:
+        with pytest.raises(OllamaResponseError):
+            _ = [event async for event in client.chat_stream([{"role": "user", "content": "Hello"}])]
     finally:
         await client.close()

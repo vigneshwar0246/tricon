@@ -4,6 +4,22 @@ import { getHealth, sendText, sendVoice, streamVoice } from "./api";
 afterEach(() => vi.unstubAllGlobals());
 
 describe("local API client", () => {
+  it("preserves Hindi stream text across split UTF-8 bytes and forwards the Hindi selection", async () => {
+    const text = "भारत की राजधानी नई दिल्ली है।";
+    const bytes = new TextEncoder().encode(JSON.stringify({ type: "done", response: text }) + "\n");
+    const body = new ReadableStream({ start(controller) {
+      for (let i = 0; i < bytes.length; i += 2) controller.enqueue(bytes.slice(i, i + 2));
+      controller.close();
+    } });
+    const fetchMock = vi.fn().mockResolvedValue(new Response(body));
+    vi.stubGlobal("fetch", fetchMock);
+    const received: string[] = [];
+    await streamVoice(new Blob(["audio"]), "session", "hi", new AbortController().signal,
+      (event) => { if (event.response) received.push(event.response); });
+    expect(received).toEqual([text]);
+    expect((fetchMock.mock.calls[0][1].body as FormData).get("language")).toBe("hi");
+  });
+
   it("keeps API availability separate from degraded model readiness", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({
       status: "degraded",

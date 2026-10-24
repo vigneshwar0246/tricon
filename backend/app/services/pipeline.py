@@ -8,7 +8,8 @@ from pathlib import Path
 from time import perf_counter
 from typing import Any, AsyncIterator
 
-from app.services.llm import OllamaClient, OllamaResponseError, ollama_client
+from app.services.llm import OllamaClient, OllamaResponseError, ollama_client, validate_response
+from app.services.language_quality import HINDI_INSTRUCTION
 from app.services.commands import Command, route_command
 from app.services.diagnostics import collect_diagnostics, status_summary
 from app.services.session_manager import SessionManager, session_manager
@@ -23,10 +24,6 @@ VOICE_SYSTEM_PROMPT = (
 )
 
 LANGUAGE_NAMES = {"en": "English", "hi": "Hindi"}
-LANGUAGE_SCRIPT_RULES = {
-    "en": "Use English in the Latin script.",
-    "hi": "Use Hindi in Devanagari script only. Never answer in Urdu or Perso-Arabic script.",
-}
 
 
 @dataclass
@@ -59,12 +56,23 @@ class VoicePipeline:
         stt: SpeechToTextService | None = None,
         tts: TextToSpeechService | None = None,
         voice_num_predict: int = 80,
+        voice_hi_num_predict: int = 192,
     ) -> None:
         self.llm = llm or ollama_client
         self.sessions = sessions or session_manager
         self.stt = stt or stt_service
         self.tts = tts or tts_service
         self.voice_num_predict = voice_num_predict
+        self.voice_hi_num_predict = voice_hi_num_predict
+
+    @staticmethod
+    def _system_prompt(language: str | None, *, voice: bool = False) -> str:
+        base = VOICE_SYSTEM_PROMPT if voice else "You are an accurate local assistant. Answer directly and concisely."
+        if language == "hi":
+            return f"{base} {HINDI_INSTRUCTION}"
+        return (f"{base} Answer the latest question; use history only for relevant follow-ups. "
+                "If unsure, say you do not know. "
+                "Reply in English unless the user explicitly requests another language.")
 
     async def _resolve_command(self, command: Command) -> Command:
         if command.action != "system_status":
@@ -77,13 +85,13 @@ class VoicePipeline:
         async with self.sessions.conversation(session_id) as session:
             if language:
                 session.language = language
+            elif re.search(r"[\u0900-\u097f]", message):
+                session.language = "hi"
             messages = self.sessions.history(session)
             if session.language:
                 messages.insert(0, {
                     "role": "system",
-                    "content": f"You are an accurate local assistant. Answer the question directly and concisely. "
-                    f"If you are unsure, say you do not know instead of inventing a fact. Reply in {LANGUAGE_NAMES[session.language]}. "
-                    f"{LANGUAGE_SCRIPT_RULES[session.language]} Do not switch languages.",
+                    "content": self._system_prompt(session.language),
                 })
             command = route_command(message, next((item.content for item in reversed(session.messages) if item.role == "assistant"), None))
             if command:
@@ -92,6 +100,7 @@ class VoicePipeline:
             else:
                 messages.append({"role": "user", "content": message})
                 response_text, metadata = await self.llm.chat(messages)
+                validate_response(response_text, metadata)
                 llm_ms = round((metadata.get("total_duration", 0) or 0) / 1_000_000, 2)
                 if llm_ms <= 0:
                     llm_ms = round((perf_counter() - started) * 1000, 2)
@@ -134,14 +143,15 @@ class VoicePipeline:
                 messages: list[dict[str, Any]] = [
                     {
                         "role": "system",
-                        "content": f"{VOICE_SYSTEM_PROMPT} Reply in {LANGUAGE_NAMES[response_language]}. "
-                        f"{LANGUAGE_SCRIPT_RULES[response_language]} Do not switch languages. If recognition seems ambiguous, ask one short clarification question.",
+                        "content": self._system_prompt(response_language, voice=True),
                     },
                     *self.sessions.history(session),
                 ]
                 messages.append({"role": "user", "content": transcript})
                 llm_started = perf_counter()
-                response_text, metadata = await self.llm.chat(messages, num_predict=self.voice_num_predict)
+                limit = self.voice_hi_num_predict if response_language == "hi" else self.voice_num_predict
+                response_text, metadata = await self.llm.chat(messages, num_predict=limit)
+                validate_response(response_text, metadata)
                 measured_llm_ms = round((perf_counter() - llm_started) * 1000, 2)
                 reported_llm_ms = round((metadata.get("total_duration", 0) or 0) / 1_000_000, 2)
                 llm_ms = reported_llm_ms if reported_llm_ms > 0 else measured_llm_ms
@@ -177,7 +187,7 @@ class VoicePipeline:
         )
 
     @staticmethod
-    def _take_speakable_chunk(buffer: str, *, final: bool = False) -> tuple[str | None, str]:
+    def _take_speakable_chunk(buffer: str, *, final: bool = False, language: str = "en") -> tuple[str | None, str]:
         """Take a sentence/phrase boundary without splitting arbitrary short word groups."""
         if final:
             return (buffer.strip() or None), ""
@@ -185,8 +195,10 @@ class VoicePipeline:
         if matches and matches[-1].end() >= 8:
             end = matches[-1].end()
             return buffer[:end].strip(), buffer[end:]
-        if len(buffer) >= 180:
-            split_at = max(buffer.rfind(", ", 80), buffer.rfind("; ", 80), buffer.rfind(" ", 120))
+        # Hindi uses more model tokens per word; start playback before a long sentence finishes.
+        limit, phrase_start, word_start = (80, 40, 50) if language == "hi" else (180, 80, 120)
+        if len(buffer) >= limit:
+            split_at = max(buffer.rfind(", ", phrase_start), buffer.rfind("; ", phrase_start), buffer.rfind(" ", word_start))
             if split_at > 0:
                 return buffer[:split_at + 1].strip(), buffer[split_at + 1:]
         return None, buffer
@@ -247,7 +259,7 @@ class VoicePipeline:
 
             messages: list[dict[str, Any]] = [{
                 "role": "system",
-                "content": f"{VOICE_SYSTEM_PROMPT} Reply in {LANGUAGE_NAMES[response_language]}. {LANGUAGE_SCRIPT_RULES[response_language]} Do not switch languages.",
+                "content": self._system_prompt(response_language, voice=True),
             }, *self.sessions.history(session), {"role": "user", "content": transcript}]
             llm_started = perf_counter()
             first_token_ms: float | None = None
@@ -257,28 +269,36 @@ class VoicePipeline:
             buffer = ""
             audio_index = 0
             reported_llm_ms: float | None = None
-            async for event in self.llm.chat_stream(messages, num_predict=self.voice_num_predict):
+            final_metadata: dict[str, Any] = {}
+            limit = self.voice_hi_num_predict if response_language == "hi" else self.voice_num_predict
+            async for event in self.llm.chat_stream(messages, num_predict=limit):
                 token = event.get("token")
                 if isinstance(token, str) and token:
                     if first_token_ms is None:
                         first_token_ms = round((perf_counter() - llm_started) * 1000, 2)
                     response_text += token
                     buffer += token
-                    yield {"type": "text", "delta": token}
-                    chunk, buffer = self._take_speakable_chunk(buffer)
-                    if chunk and speech_available:
-                        chunk_path, chunk_ms = await asyncio.to_thread(
-                            self.tts.synthesize_to_file, chunk, response_language
-                        )
-                        tts_ms += chunk_ms
-                        if first_audio_ms is None:
-                            first_audio_ms = round((perf_counter() - overall_started) * 1000, 2)
-                        yield {"type": "audio", "url": f"/api/audio/{chunk_path.name}", "text": chunk, "index": audio_index}
-                        audio_index += 1
+                    # Validate the complete Hindi answer before exposing it to speech.
+                    if response_language != "hi":
+                        yield {"type": "text", "delta": token}
+                        chunk, buffer = self._take_speakable_chunk(buffer, language=response_language)
+                        if chunk and speech_available:
+                            chunk_path, chunk_ms = await asyncio.to_thread(
+                                self.tts.synthesize_to_file, chunk, response_language
+                            )
+                            tts_ms += chunk_ms
+                            if first_audio_ms is None:
+                                first_audio_ms = round((perf_counter() - overall_started) * 1000, 2)
+                            yield {"type": "audio", "url": f"/api/audio/{chunk_path.name}", "text": chunk, "index": audio_index}
+                            audio_index += 1
                 if event.get("done") and isinstance(event.get("metadata"), dict):
+                    final_metadata = event["metadata"]
                     duration_ns = event["metadata"].get("total_duration", 0)
                     if isinstance(duration_ns, (int, float)) and duration_ns > 0:
                         reported_llm_ms = round(duration_ns / 1_000_000, 2)
+            validate_response(response_text, final_metadata)
+            if response_language == "hi":
+                yield {"type": "text", "delta": response_text}
             final_chunk, _ = self._take_speakable_chunk(buffer, final=True)
             if final_chunk and speech_available:
                 chunk_path, chunk_ms = await asyncio.to_thread(

@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     ollama_num_ctx: int = Field(default=4096, ge=512, le=32768)
     ollama_num_predict: int = Field(default=160, ge=16, le=1024)
     voice_num_predict: int = Field(default=80, ge=16, le=256)
+    voice_hi_num_predict: int = Field(default=192, ge=32, le=512)
 
     session_max_turns: int = Field(default=12, ge=1, le=100)
     session_max_count: int = Field(default=500, ge=1, le=10000)
@@ -39,6 +40,7 @@ class Settings(BaseSettings):
     stt_compute_type: str = "int8"
     stt_language: str | None = None
     stt_beam_size: int = Field(default=5, ge=1, le=10)
+    stt_hi_beam_size: int = Field(default=2, ge=1, le=10)
     stt_language_confidence_threshold: float = Field(default=0.55, ge=0, le=1)
     audio_max_size_mb: int = Field(default=25, ge=1, le=100)
     audio_max_duration_seconds: int = Field(default=300, ge=1, le=1800)

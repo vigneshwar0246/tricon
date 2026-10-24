@@ -62,7 +62,7 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
 
   const handleError = useCallback((reason: unknown) => {
     const detail = reason instanceof Error ? reason.message : "Unknown error";
-    setError(`Could not reach the local assistant. Confirm that the FastAPI backend is running, then try again. ${detail}`);
+    setError(detail);
     setPhase("error");
   }, []);
 

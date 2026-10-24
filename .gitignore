@@ -124,6 +124,7 @@ generated_audio/
 # Keep explicitly committed small sample files using exceptions if needed.
 
 # ---------- Logs & Runtime Data ----------
+/.run/
 *.log
 logs/
 tmp/

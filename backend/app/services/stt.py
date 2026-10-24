@@ -8,12 +8,9 @@ from typing import Any
 
 from app.core.cuda import configure_cuda_dll_directories
 from app.core.config import Settings, get_settings
+from app.services.language_quality import normalize_text, text_quality_error
 
 logger = logging.getLogger(__name__)
-
-LANGUAGE_PROMPTS = {
-    "hi": "यह हिंदी भाषा में देवनागरी लिपि का स्पष्ट वाक्य है।",
-}
 
 
 class SpeechModelNotInstalledError(RuntimeError):
@@ -80,6 +77,8 @@ class SpeechToTextService:
                         f"The configured multilingual Faster-Whisper model is incomplete at '{path}'."
                     )
                 try:
+                    if self.active_device == "cuda":
+                        configure_cuda_dll_directories()
                     from faster_whisper import WhisperModel
                     self._language_models[language] = WhisperModel(
                         str(path), device=self.active_device, compute_type=self.active_compute_type
@@ -112,6 +111,7 @@ class SpeechToTextService:
         self.fallback_reason = f"{type(reason).__name__}: {reason}"[:300]
         logger.warning("CUDA STT failed; retrying with CPU/int8: %s", self.fallback_reason)
         self._model = self._load_model("cpu", "int8")
+        self._language_models.clear()
 
     @staticmethod
     def _is_cuda_runtime_error(error: Exception) -> bool:
@@ -125,9 +125,10 @@ class SpeechToTextService:
         segments, info = model.transcribe(
             str(audio_path),
             language=selected_language,
-            beam_size=self.settings.stt_beam_size,
+            beam_size=self.settings.stt_hi_beam_size if selected_language == "hi" else self.settings.stt_beam_size,
             vad_filter=True,
-            initial_prompt=LANGUAGE_PROMPTS.get(selected_language),
+            # Language is a decoder option; a prose prompt can leak into uncertain speech.
+            initial_prompt=None,
             condition_on_previous_text=False,
         )
         duration = getattr(info, "duration", None)
@@ -136,22 +137,46 @@ class SpeechToTextService:
                 f"Audio is longer than the {self.settings.audio_max_duration_seconds}-second limit."
             )
         # Segment iteration performs inference, so keep it inside this service call.
-        text = " ".join(segment.text.strip() for segment in segments).strip()
+        segments = list(segments)
+        for segment in segments:
+            logprob = getattr(segment, "avg_logprob", None)
+            compression = getattr(segment, "compression_ratio", None)
+            if ((isinstance(logprob, (int, float)) and logprob < -1.0)
+                    or (isinstance(compression, (int, float)) and compression > 2.4)):
+                raise TranscriptionError(
+                    "Speech recognition was uncertain. Please repeat clearly or type your question."
+                )
+        text = normalize_text(" ".join(segment.text.strip() for segment in segments))
         if not text:
             raise TranscriptionError("No speech was detected in the uploaded audio.")
+        if text_quality_error(text):
+            raise TranscriptionError("Speech recognition was unclear. Please repeat or type your question.")
         return text, info
+
+    def _decode(self, audio_path: str | Path, language: str | None) -> tuple[str, Any]:
+        model = self._get_model_for_language(language)
+        try:
+            return self._transcribe_with_model(model, audio_path, language)
+        except Exception as exc:
+            if self.active_device != "cuda" or not self._is_cuda_runtime_error(exc):
+                raise
+            self._fallback_to_cpu(exc)
+            model = self._get_model_for_language(language)
+            return self._transcribe_with_model(model, audio_path, language)
 
     def transcribe(self, audio_path: str | Path, language: str | None = None) -> tuple[str, dict[str, Any]]:
         try:
             with self._inference_lock:
-                model = self._get_model_for_language(language or self.settings.stt_language)
-                try:
-                    text, info = self._transcribe_with_model(model, audio_path, language)
-                except Exception as exc:
-                    if self.active_device != "cuda" or not self._is_cuda_runtime_error(exc):
-                        raise
-                    self._fallback_to_cpu(exc)
-                    text, info = self._transcribe_with_model(self._model, audio_path, language)
+                text, info = self._decode(audio_path, language or self.settings.stt_language)
+                detected_probability = getattr(info, "language_probability", None)
+                # Auto detection starts with the base model, then uses the Hindi model
+                # only after a confident Hindi detection. English stays on the base model.
+                if (not (language or self.settings.stt_language)
+                        and getattr(info, "language", None) == "hi"
+                        and isinstance(getattr(info, "language_probability", None), (int, float))
+                        and info.language_probability >= self.settings.stt_language_confidence_threshold
+                        and self.settings.stt_multilingual_model_path is not None):
+                    text, info = self._decode(audio_path, "hi")
         except TranscriptionError:
             raise
         except SpeechModelNotInstalledError:
@@ -162,7 +187,7 @@ class SpeechToTextService:
         self.last_successful_device = self.active_device
         return text, {
             "language": getattr(info, "language", None),
-            "language_probability": getattr(info, "language_probability", None),
+            "language_probability": detected_probability,
         }
 
 

@@ -8,6 +8,7 @@ from typing import Any
 import httpx
 
 from app.core.config import Settings, get_settings
+from app.services.language_quality import text_quality_error
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +23,17 @@ class OllamaModelMissingError(RuntimeError):
 
 class OllamaResponseError(RuntimeError):
     pass
+
+
+def validate_response(text: str, metadata: dict[str, Any]) -> None:
+    problem = text_quality_error(text)
+    if metadata.get("done_reason") == "length":
+        problem = "reply exceeded its generation limit"
+    if problem:
+        raise OllamaResponseError(
+            f"The local model could not produce a complete, usable answer ({problem}). "
+            "Please rephrase or ask a shorter question."
+        )
 
 
 class OllamaClient:
@@ -121,6 +133,7 @@ class OllamaClient:
         self, messages: list[dict[str, str]], *, num_predict: int | None = None
     ) -> AsyncIterator[dict[str, Any]]:
         """Yield Ollama token events and one final metadata event from its NDJSON stream."""
+        completed = False
         try:
             async with self._get_client().stream(
                 "POST",
@@ -152,12 +165,23 @@ class OllamaClient:
                     except ValueError as exc:
                         raise OllamaResponseError("Ollama returned malformed streaming data.") from exc
                     if not isinstance(payload, dict):
-                        continue
-                    token = payload.get("message", {}).get("content", "")
+                        raise OllamaResponseError("Ollama returned malformed streaming data.")
+                    if payload.get("error"):
+                        raise OllamaResponseError("Ollama reported a generation error. Please try again.")
+                    message = payload.get("message", {})
+                    if not isinstance(message, dict):
+                        raise OllamaResponseError("Ollama returned a malformed streaming message.")
+                    token = message.get("content", "")
+                    if not isinstance(token, str):
+                        raise OllamaResponseError("Ollama returned non-text content.")
                     if isinstance(token, str) and token:
                         yield {"token": token}
                     if payload.get("done"):
+                        completed = True
                         yield {"done": True, "metadata": payload}
+                        break
+                if not completed:
+                    raise OllamaResponseError("Ollama stopped before completing its answer. Please try again.")
         except httpx.TimeoutException as exc:
             raise OllamaUnavailableError("Ollama did not respond before the request timed out.") from exc
         except httpx.HTTPError as exc:

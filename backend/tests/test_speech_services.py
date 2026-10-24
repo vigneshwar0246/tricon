@@ -3,6 +3,7 @@ import pytest
 import time
 from types import SimpleNamespace
 from unittest.mock import Mock
+from unittest.mock import patch
 
 from app.core.config import Settings
 from app.services.stt import SpeechModelNotInstalledError, SpeechToTextService
@@ -150,3 +151,47 @@ def test_cuda_transcription_failure_retries_once_on_cpu(tmp_path) -> None:
     assert loads == [("cpu", "int8")]
     assert cpu_model.transcribe.call_count == 1
     assert service.last_successful_device == "cpu"
+
+
+def test_hindi_first_load_configures_cuda_before_loading_model(tmp_path) -> None:
+    for name in ("model.bin", "config.json"):
+        (tmp_path / name).touch()
+    service = SpeechToTextService(Settings(
+        stt_multilingual_model_path=tmp_path, stt_device="cuda", stt_compute_type="float16",
+    ))
+    calls = []
+    model = Mock()
+    with patch("app.services.stt.configure_cuda_dll_directories", side_effect=lambda: calls.append("cuda")), \
+         patch("faster_whisper.WhisperModel", side_effect=lambda *a, **kw: calls.append("model") or model):
+        assert service._get_model_for_language("hi") is model
+        assert service._get_model_for_language("hi") is model
+    assert calls == ["cuda", "model"]
+
+
+def test_hindi_runtime_fallback_reloads_hindi_on_cpu(tmp_path) -> None:
+    service = SpeechToTextService(Settings(stt_device="cuda", stt_multilingual_model_path=tmp_path))
+    gpu = Mock()
+    gpu.transcribe.side_effect = RuntimeError("CUDA runtime failed")
+    cpu = Mock()
+    cpu.transcribe.return_value = ([SimpleNamespace(text="नमस्ते")], SimpleNamespace(duration=1))
+    service._language_models["hi"] = gpu
+
+    def fallback(error):
+        service.active_device = "cpu"
+        service._language_models.clear()
+
+    with patch.object(service, "_get_model_for_language", side_effect=[gpu, cpu]) as get_model, \
+         patch.object(service, "_fallback_to_cpu", side_effect=fallback):
+        text, _ = service.transcribe(tmp_path / "hindi.wav", "hi")
+    assert text == "नमस्ते"
+    assert [call.args for call in get_model.call_args_list] == [("hi",), ("hi",)]
+    assert service.last_successful_device == "cpu"
+
+
+@pytest.mark.parametrize("language,beam", [("hi", 2), ("en", 5)])
+def test_language_specific_beam_size(language, beam) -> None:
+    service = SpeechToTextService(Settings(stt_beam_size=5, stt_hi_beam_size=2))
+    model = Mock()
+    model.transcribe.return_value = ([SimpleNamespace(text="speech")], SimpleNamespace(duration=1))
+    service._transcribe_with_model(model, "input.wav", language)
+    assert model.transcribe.call_args.kwargs["beam_size"] == beam
